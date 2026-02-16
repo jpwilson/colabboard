@@ -4,26 +4,17 @@ import { useState, useRef, useCallback } from 'react'
 import { Stage, Layer, Rect, Text, Group, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { usePresence } from '@/hooks/usePresence'
+import { useBoard } from '@/hooks/useBoard'
 import { CursorOverlay } from './CursorOverlay'
 import { PresenceIndicator } from './PresenceIndicator'
+import type { CanvasObject } from '@/lib/board-sync'
 
 type Tool = 'select' | 'sticky_note' | 'rectangle'
-
-interface CanvasObject {
-  id: string
-  type: 'sticky_note' | 'rectangle'
-  x: number
-  y: number
-  width: number
-  height: number
-  fill: string
-  text?: string
-}
 
 const STICKY_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fde68a', '#c4b5fd']
 
 function generateId() {
-  return Math.random().toString(36).slice(2, 11)
+  return crypto.randomUUID()
 }
 
 interface BoardCanvasProps {
@@ -33,7 +24,8 @@ interface BoardCanvasProps {
 }
 
 export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
-  const [objects, setObjects] = useState<CanvasObject[]>([])
+  // Local-only state (used when no boardId)
+  const [localObjects, setLocalObjects] = useState<CanvasObject[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
@@ -43,12 +35,28 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
 
+  const syncEnabled = !!(boardId && userId)
   const presenceEnabled = !!(boardId && userId && userName)
+
+  const {
+    objects: syncObjects,
+    addObject,
+    updateObject,
+    deleteObject,
+  } = useBoard({
+    boardId: boardId || '',
+    userId: userId || '',
+  })
+
   const { others, updateCursor } = usePresence({
     boardId: boardId || '',
     userId: userId || '',
     userName: userName || '',
   })
+
+  // Use synced objects when connected, local objects otherwise
+  const objects = syncEnabled ? syncObjects : localObjects
+  const nextZIndex = objects.length > 0 ? Math.max(...objects.map((o) => o.z_index)) + 1 : 0
 
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
@@ -90,6 +98,7 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
 
         const x = (pointer.x - stagePos.x) / stageScale
         const y = (pointer.y - stagePos.y) / stageScale
+        const now = new Date().toISOString()
 
         if (tool === 'sticky_note') {
           const newObj: CanvasObject = {
@@ -101,8 +110,14 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
             height: 150,
             fill: STICKY_COLORS[Math.floor(Math.random() * STICKY_COLORS.length)],
             text: 'Double-click to edit',
+            z_index: nextZIndex,
+            updated_at: now,
           }
-          setObjects((prev) => [...prev, newObj])
+          if (syncEnabled) {
+            addObject(newObj)
+          } else {
+            setLocalObjects((prev) => [...prev, newObj])
+          }
         } else if (tool === 'rectangle') {
           const newObj: CanvasObject = {
             id: generateId(),
@@ -112,14 +127,20 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
             width: 120,
             height: 80,
             fill: '#e2e8f0',
+            z_index: nextZIndex,
+            updated_at: now,
           }
-          setObjects((prev) => [...prev, newObj])
+          if (syncEnabled) {
+            addObject(newObj)
+          } else {
+            setLocalObjects((prev) => [...prev, newObj])
+          }
         }
 
         setTool('select')
       }
     },
-    [tool, stagePos, stageScale],
+    [tool, stagePos, stageScale, syncEnabled, addObject, nextZIndex],
   )
 
   const handleSelect = useCallback((id: string) => {
@@ -127,29 +148,41 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
     setTool('select')
   }, [])
 
-  const handleDragEnd = useCallback((id: string, x: number, y: number) => {
-    setObjects((prev) => prev.map((obj) => (obj.id === id ? { ...obj, x, y } : obj)))
-  }, [])
+  const handleDragEnd = useCallback(
+    (id: string, x: number, y: number) => {
+      if (syncEnabled) {
+        updateObject(id, { x, y })
+      } else {
+        setLocalObjects((prev) => prev.map((obj) => (obj.id === id ? { ...obj, x, y } : obj)))
+      }
+    },
+    [syncEnabled, updateObject],
+  )
 
-  const handleTransformEnd = useCallback((id: string, node: Konva.Node) => {
-    const scaleX = node.scaleX()
-    const scaleY = node.scaleY()
-    node.scaleX(1)
-    node.scaleY(1)
-    setObjects((prev) =>
-      prev.map((obj) =>
-        obj.id === id
-          ? {
-              ...obj,
-              x: node.x(),
-              y: node.y(),
-              width: Math.max(20, node.width() * scaleX),
-              height: Math.max(20, node.height() * scaleY),
-            }
-          : obj,
-      ),
-    )
-  }, [])
+  const handleTransformEnd = useCallback(
+    (id: string, node: Konva.Node) => {
+      const scaleX = node.scaleX()
+      const scaleY = node.scaleY()
+      node.scaleX(1)
+      node.scaleY(1)
+
+      const updates = {
+        x: node.x(),
+        y: node.y(),
+        width: Math.max(20, node.width() * scaleX),
+        height: Math.max(20, node.height() * scaleY),
+      }
+
+      if (syncEnabled) {
+        updateObject(id, updates)
+      } else {
+        setLocalObjects((prev) =>
+          prev.map((obj) => (obj.id === id ? { ...obj, ...updates } : obj)),
+        )
+      }
+    },
+    [syncEnabled, updateObject],
+  )
 
   const handleDoubleClick = useCallback(
     (id: string) => {
@@ -193,9 +226,14 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
       textarea.focus()
 
       const handleBlur = () => {
-        setObjects((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, text: textarea.value } : o)),
-        )
+        const newText = textarea.value
+        if (syncEnabled) {
+          updateObject(id, { text: newText })
+        } else {
+          setLocalObjects((prev) =>
+            prev.map((o) => (o.id === id ? { ...o, text: newText } : o)),
+          )
+        }
         textarea.remove()
         setEditingId(null)
       }
@@ -207,7 +245,7 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
         }
       })
     },
-    [objects, stageScale],
+    [objects, stageScale, syncEnabled, updateObject],
   )
 
   // Sync transformer to selected node
@@ -231,9 +269,13 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
 
   const handleDelete = useCallback(() => {
     if (!selectedId) return
-    setObjects((prev) => prev.filter((o) => o.id !== selectedId))
+    if (syncEnabled) {
+      deleteObject(selectedId)
+    } else {
+      setLocalObjects((prev) => prev.filter((o) => o.id !== selectedId))
+    }
     setSelectedId(null)
-  }, [selectedId])
+  }, [selectedId, syncEnabled, deleteObject])
 
   const handleMouseMove = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
