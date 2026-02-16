@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { LoginForm } from '@/components/auth/LoginForm'
 
-export default async function Home() {
+export default async function LoginPage() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -11,5 +12,9 @@ export default async function Home() {
     redirect('/dashboard')
   }
 
-  redirect('/login')
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <LoginForm />
+    </main>
+  )
 }

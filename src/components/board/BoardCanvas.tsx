@@ -23,7 +23,13 @@ function generateId() {
   return Math.random().toString(36).slice(2, 11)
 }
 
-export function BoardCanvas() {
+interface BoardCanvasProps {
+  boardId?: string
+  userId?: string
+  userName?: string
+}
+
+export function BoardCanvas({ boardId: _boardId, userId: _userId, userName: _userName }: BoardCanvasProps) {
   const [objects, setObjects] = useState<CanvasObject[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')

@@ -14,6 +14,12 @@ const BoardCanvas = dynamic(
   },
 )
 
-export function BoardCanvasLoader() {
-  return <BoardCanvas />
+interface BoardCanvasLoaderProps {
+  boardId?: string
+  userId?: string
+  userName?: string
+}
+
+export function BoardCanvasLoader({ boardId, userId, userName }: BoardCanvasLoaderProps) {
+  return <BoardCanvas boardId={boardId} userId={userId} userName={userName} />
 }
