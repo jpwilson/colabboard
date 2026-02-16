@@ -16,10 +16,14 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/test/**',
+        'src/benchmarks/**',
         'src/**/*.d.ts',
         'src/**/*.test.{ts,tsx}',
         'src/**/*.spec.{ts,tsx}',
       ],
+    },
+    benchmark: {
+      include: ['src/benchmarks/**/*.bench.ts'],
     },
   },
 })
