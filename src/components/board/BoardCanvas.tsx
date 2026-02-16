@@ -3,6 +3,9 @@
 import { useState, useRef, useCallback } from 'react'
 import { Stage, Layer, Rect, Text, Group, Transformer } from 'react-konva'
 import type Konva from 'konva'
+import { usePresence } from '@/hooks/usePresence'
+import { CursorOverlay } from './CursorOverlay'
+import { PresenceIndicator } from './PresenceIndicator'
 
 type Tool = 'select' | 'sticky_note' | 'rectangle'
 
@@ -29,7 +32,7 @@ interface BoardCanvasProps {
   userName?: string
 }
 
-export function BoardCanvas({ boardId: _boardId, userId: _userId, userName: _userName }: BoardCanvasProps) {
+export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
   const [objects, setObjects] = useState<CanvasObject[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
@@ -39,6 +42,13 @@ export function BoardCanvas({ boardId: _boardId, userId: _userId, userName: _use
 
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
+
+  const presenceEnabled = !!(boardId && userId && userName)
+  const { others, updateCursor } = usePresence({
+    boardId: boardId || '',
+    userId: userId || '',
+    userName: userName || '',
+  })
 
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
@@ -225,6 +235,24 @@ export function BoardCanvas({ boardId: _boardId, userId: _userId, userName: _use
     setSelectedId(null)
   }, [selectedId])
 
+  const handleMouseMove = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!presenceEnabled) return
+      const stage = e.target.getStage()
+      if (!stage) return
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+
+      updateCursor({ x: pointer.x, y: pointer.y })
+    },
+    [presenceEnabled, updateCursor],
+  )
+
+  const handleMouseLeave = useCallback(() => {
+    if (!presenceEnabled) return
+    updateCursor(null)
+  }, [presenceEnabled, updateCursor])
+
   return (
     <div className="flex h-screen w-screen flex-col">
       {/* Toolbar */}
@@ -271,6 +299,10 @@ export function BoardCanvas({ boardId: _boardId, userId: _userId, userName: _use
           </>
         )}
         <div className="flex-1" />
+        {presenceEnabled && (
+          <PresenceIndicator users={others} currentUserName={userName} />
+        )}
+        {presenceEnabled && others.length > 0 && <div className="h-4 w-px bg-gray-300" />}
         <span className="text-xs text-gray-400">
           {tool === 'select'
             ? 'Click objects to select, scroll to zoom, drag canvas to pan'
@@ -292,6 +324,8 @@ export function BoardCanvas({ boardId: _boardId, userId: _userId, userName: _use
           onWheel={handleWheel}
           onClick={handleStageClick}
           onTap={handleStageClick}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
           onDragEnd={(e) => {
             if (e.target === e.target.getStage()) {
               setStagePos({ x: e.target.x(), y: e.target.y() })
@@ -406,6 +440,11 @@ export function BoardCanvas({ boardId: _boardId, userId: _userId, userName: _use
                 return newBox
               }}
             />
+
+            {/* Remote cursors */}
+            {presenceEnabled && (
+              <CursorOverlay users={others} stagePos={stagePos} stageScale={stageScale} />
+            )}
           </Layer>
         </Stage>
       </div>
