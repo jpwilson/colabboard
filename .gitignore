@@ -25,3 +25,22 @@ out/
 # Project documents (not for version control)
 G4 Week 1 - CollabBoard.pdf
 Orim_PreSearch_Document.pdf
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# Coverage
+/coverage/
+
+# Supabase
+.supabase/
+
+# Vercel
+.vercel/
+
+# TypeScript
+*.tsbuildinfo

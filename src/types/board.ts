@@ -1,0 +1,42 @@
+export type ObjectType = 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text' | 'frame' | 'connector'
+
+export type UserRole = 'owner' | 'editor' | 'viewer'
+
+export interface Board {
+  id: string
+  slug: string
+  name: string
+  owner_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BoardMember {
+  id: string
+  board_id: string
+  user_id: string
+  role: UserRole
+  invited_at: string
+}
+
+export interface BoardObject {
+  id: string
+  board_id: string
+  type: ObjectType
+  data: Record<string, unknown>
+  x: number
+  y: number
+  width: number
+  height: number
+  z_index: number
+  created_by: string
+  updated_at: string
+}
+
+export interface CursorPosition {
+  user_id: string
+  user_name: string
+  x: number
+  y: number
+  color: string
+}
