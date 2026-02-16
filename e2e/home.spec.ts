@@ -32,3 +32,9 @@ test('dashboard redirects to login when not authenticated', async ({ page }) => 
   await page.waitForURL('**/login**')
   await expect(page).toHaveURL(/\/login/)
 })
+
+test('board page redirects to login when not authenticated', async ({ page }) => {
+  await page.goto('/board/test-board')
+  await page.waitForURL('**/login**')
+  await expect(page).toHaveURL(/\/login/)
+})
