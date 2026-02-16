@@ -104,9 +104,9 @@ export function LandingPage() {
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent">
               <svg viewBox="0 0 40 40" className="h-5 w-5" fill="none">
-                <circle cx="10" cy="20" r="5" fill="#1a2b3c" />
-                <circle cx="22" cy="20" r="5" fill="#1a2b3c" />
-                <circle cx="34" cy="20" r="5" fill="#1a2b3c" />
+                <circle cx="12" cy="20" r="9" fill="#e6a800" opacity="0.8" />
+                <circle cx="20" cy="20" r="9" fill="#ffca28" opacity="0.8" />
+                <circle cx="28" cy="20" r="9" fill="#ffd54f" opacity="0.8" />
               </svg>
             </div>
             <span className="text-xl font-bold text-slate-800">Orim</span>
@@ -394,9 +394,9 @@ export function LandingPage() {
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent">
               <svg viewBox="0 0 40 40" className="h-4 w-4" fill="none">
-                <circle cx="10" cy="20" r="5" fill="#1a2b3c" />
-                <circle cx="22" cy="20" r="5" fill="#1a2b3c" />
-                <circle cx="34" cy="20" r="5" fill="#1a2b3c" />
+                <circle cx="12" cy="20" r="9" fill="#e6a800" opacity="0.8" />
+                <circle cx="20" cy="20" r="9" fill="#ffca28" opacity="0.8" />
+                <circle cx="28" cy="20" r="9" fill="#ffd54f" opacity="0.8" />
               </svg>
             </div>
             <span className="text-sm font-semibold text-slate-700">Orim</span>
