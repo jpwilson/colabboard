@@ -1,21 +1,34 @@
 import { test, expect } from '@playwright/test'
 
-test('homepage loads and shows canvas toolbar', async ({ page }) => {
+test('homepage redirects to login', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('Orim')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Select' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Sticky Note' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Rectangle' })).toBeVisible()
+  await page.waitForURL('**/login')
+  await expect(page).toHaveURL(/\/login/)
 })
 
-test('homepage has correct title', async ({ page }) => {
-  await page.goto('/')
-  await expect(page).toHaveTitle(/Orim/)
+test('login page shows sign-in form', async ({ page }) => {
+  await page.goto('/login')
+  await expect(page.getByRole('heading', { name: 'Orim' })).toBeVisible()
+  await expect(page.getByLabel('Email')).toBeVisible()
+  await expect(page.getByLabel('Password')).toBeVisible()
+  await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible()
 })
 
-test('can select sticky note tool', async ({ page }) => {
-  await page.goto('/')
-  const stickyBtn = page.getByRole('button', { name: 'Sticky Note' })
-  await stickyBtn.click()
-  await expect(stickyBtn).toHaveClass(/bg-yellow/)
+test('login page shows OAuth buttons', async ({ page }) => {
+  await page.goto('/login')
+  await expect(page.getByRole('button', { name: /google/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /github/i })).toBeVisible()
+})
+
+test('login page toggles between sign-in and sign-up', async ({ page }) => {
+  await page.goto('/login')
+  await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible()
+  await page.getByRole('button', { name: /sign up/i }).click()
+  await expect(page.getByText('Create a new account')).toBeVisible()
+})
+
+test('dashboard redirects to login when not authenticated', async ({ page }) => {
+  await page.goto('/dashboard')
+  await page.waitForURL('**/login**')
+  await expect(page).toHaveURL(/\/login/)
 })

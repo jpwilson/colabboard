@@ -44,3 +44,4 @@ Orim_PreSearch_Document.pdf
 
 # TypeScript
 *.tsbuildinfo
+.vercel
