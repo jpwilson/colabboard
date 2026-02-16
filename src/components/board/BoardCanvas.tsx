@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Stage, Layer, Rect, Text, Group, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { usePresence } from '@/hooks/usePresence'
@@ -32,8 +32,21 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
   const [stageScale, setStageScale] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
 
+  const [stageSize, setStageSize] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    height: typeof window !== 'undefined' ? window.innerHeight - 48 : 800,
+  })
+
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
+
+  useEffect(() => {
+    function handleResize() {
+      setStageSize({ width: window.innerWidth, height: window.innerHeight - 48 })
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const syncEnabled = !!(boardId && userId)
   const presenceEnabled = !!(boardId && userId && userName)
@@ -356,8 +369,8 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
       <div className="relative flex-1 overflow-hidden bg-gray-50">
         <Stage
           ref={stageRef}
-          width={typeof window !== 'undefined' ? window.innerWidth : 1200}
-          height={typeof window !== 'undefined' ? window.innerHeight - 48 : 800}
+          width={stageSize.width}
+          height={stageSize.height}
           scaleX={stageScale}
           scaleY={stageScale}
           x={stagePos.x}
@@ -382,10 +395,10 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
               const startX = Math.floor(-stagePos.x / stageScale / gridSize) * gridSize - gridSize
               const startY = Math.floor(-stagePos.y / stageScale / gridSize) * gridSize - gridSize
               const endX =
-                startX + (typeof window !== 'undefined' ? window.innerWidth : 1200) / stageScale + gridSize * 2
+                startX + (stageSize.width) / stageScale + gridSize * 2
               const endY =
                 startY +
-                (typeof window !== 'undefined' ? window.innerHeight - 48 : 800) / stageScale +
+                (stageSize.height) / stageScale +
                 gridSize * 2
               for (let x = startX; x < endX; x += gridSize) {
                 for (let y = startY; y < endY; y += gridSize) {
