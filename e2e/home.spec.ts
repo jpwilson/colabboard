@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test'
 
-test('homepage redirects to login', async ({ page }) => {
+test('homepage shows landing page', async ({ page }) => {
   await page.goto('/')
-  await page.waitForURL('**/login')
-  await expect(page).toHaveURL(/\/login/)
+  await expect(page.getByRole('link', { name: /get started/i }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: /sign in/i }).first()).toBeVisible()
 })
 
 test('login page shows sign-in form', async ({ page }) => {
