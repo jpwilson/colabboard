@@ -13,10 +13,19 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // Fetch user's boards with member count
+  // Fetch boards where user is owner or member
+  const { data: memberRows } = await supabase
+    .from('board_members')
+    .select('board_id')
+    .eq('user_id', user.id)
+
+  const memberBoardIds = (memberRows || []).map((r) => r.board_id)
+
+  // Also include boards the user owns (they might not have a board_members row)
   const { data: boards } = await supabase
     .from('boards')
     .select('id, slug, name, owner_id, updated_at, board_members(count)')
+    .or(`owner_id.eq.${user.id}${memberBoardIds.length > 0 ? `,id.in.(${memberBoardIds.join(',')})` : ''}`)
     .order('updated_at', { ascending: false })
 
   return (
@@ -73,11 +82,9 @@ export default async function DashboardPage() {
                       {memberCount > 1 && (
                         <span>{memberCount} members</span>
                       )}
-                      {isOwner && (
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
-                          Owner
-                        </span>
-                      )}
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
+                        {isOwner ? 'Owner' : 'Shared'}
+                      </span>
                     </div>
                   </a>
                   {isOwner && (
