@@ -10,16 +10,25 @@ vi.mock('@/lib/supabase/client', () => ({
       signInWithPassword: vi.fn(),
       signUp: vi.fn(),
       signInWithOAuth: vi.fn(),
+      signInWithOtp: vi.fn(),
     },
   }),
 }))
 
 describe('LoginForm', () => {
-  it('renders sign-in form with email and password fields', () => {
+  it('renders magic link form by default with email field', () => {
     render(<LoginForm />)
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /send magic link/i })).toBeInTheDocument()
+  })
+
+  it('shows password field when password tab is selected', async () => {
+    const user = userEvent.setup()
+    render(<LoginForm />)
+
+    await user.click(screen.getByRole('button', { name: /^password$/i }))
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
   })
 
   it('renders OAuth buttons', () => {
@@ -32,12 +41,12 @@ describe('LoginForm', () => {
     const user = userEvent.setup()
     render(<LoginForm />)
 
-    expect(screen.getByText('Sign in to your account')).toBeInTheDocument()
+    expect(screen.getByText('Sign in to continue to Orim')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /sign up/i }))
-    expect(screen.getByText('Create a new account')).toBeInTheDocument()
+    expect(screen.getByText('Get started with Orim for free')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /sign in/i }))
-    expect(screen.getByText('Sign in to your account')).toBeInTheDocument()
+    expect(screen.getByText('Sign in to continue to Orim')).toBeInTheDocument()
   })
 })
