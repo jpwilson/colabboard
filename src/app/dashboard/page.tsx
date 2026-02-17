@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createBoard, deleteBoard } from './actions'
+import { NewBoardButton } from './NewBoardButton'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -40,15 +41,7 @@ export default async function DashboardPage() {
       <div className="mx-auto max-w-5xl px-6 py-8">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Your Boards</h2>
-          <form action={createBoard}>
-            <input type="hidden" name="name" value="Untitled Board" />
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              New Board
-            </button>
-          </form>
+          <NewBoardButton action={createBoard} />
         </div>
 
         {boards && boards.length > 0 ? (
