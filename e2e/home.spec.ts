@@ -6,12 +6,17 @@ test('homepage shows landing page', async ({ page }) => {
   await expect(page.getByRole('link', { name: /sign in/i }).first()).toBeVisible()
 })
 
-test('login page shows sign-in form', async ({ page }) => {
+test('login page shows magic link form by default', async ({ page }) => {
   await page.goto('/login')
-  await expect(page.getByRole('heading', { name: 'Orim' })).toBeVisible()
   await expect(page.getByLabel('Email')).toBeVisible()
-  await expect(page.getByLabel('Password', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible()
+  await expect(page.getByRole('button', { name: /send magic link/i })).toBeVisible()
+})
+
+test('login page shows password form when tab clicked', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('button', { name: /^password$/i }).click()
+  await expect(page.getByLabel('Password')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^sign in$/i })).toBeVisible()
 })
 
 test('login page shows OAuth buttons', async ({ page }) => {
@@ -22,9 +27,9 @@ test('login page shows OAuth buttons', async ({ page }) => {
 
 test('login page toggles between sign-in and sign-up', async ({ page }) => {
   await page.goto('/login')
-  await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible()
+  await expect(page.getByText('Sign in to continue to Orim')).toBeVisible()
   await page.getByRole('button', { name: /sign up/i }).click()
-  await expect(page.getByText('Create a new account')).toBeVisible()
+  await expect(page.getByText('Get started with Orim for free')).toBeVisible()
 })
 
 test('dashboard redirects to login when not authenticated', async ({ page }) => {
