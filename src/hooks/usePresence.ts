@@ -46,6 +46,7 @@ interface UsePresenceOptions {
 export function usePresence({ boardId, userId, userName }: UsePresenceOptions) {
   const [others, setOthers] = useState<PresenceUser[]>([])
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const cursorBufferRef = useRef<Map<string, CursorPosition | null>>(new Map())
 
   useEffect(() => {
     if (!boardId || !userId) return
@@ -69,13 +70,14 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions) {
           const latest = presences[presences.length - 1] as {
             userId?: string
             userName?: string
-            cursor?: CursorPosition | null
           }
           if (latest) {
+            // Apply any buffered cursor position
+            const bufferedCursor = cursorBufferRef.current.get(key) ?? null
             users.push({
               userId: key,
               userName: (latest.userName as string) || 'Anonymous',
-              cursor: (latest.cursor as CursorPosition | null) || null,
+              cursor: bufferedCursor,
               color: getUserColor(key),
             })
           }
@@ -83,19 +85,39 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions) {
 
         setOthers(users)
       })
+      .on('broadcast', { event: 'cursor' }, ({ payload }) => {
+        const { userId: senderId, cursor } = payload as {
+          userId: string
+          cursor: CursorPosition | null
+        }
+        if (senderId === userId) return
+
+        // Buffer cursor position for presence sync edge case
+        cursorBufferRef.current.set(senderId, cursor)
+
+        // Fast-path: update cursor directly in state
+        setOthers((prev) => {
+          const idx = prev.findIndex((u) => u.userId === senderId)
+          if (idx === -1) return prev // User not in presence yet, buffered for later
+          const updated = [...prev]
+          updated[idx] = { ...updated[idx], cursor }
+          return updated
+        })
+      })
       .subscribe(async (status) => {
         if (status !== 'SUBSCRIBED') return
         await channel.track({
           userId,
           userName,
-          cursor: null,
         })
       })
 
+    const buffer = cursorBufferRef.current
     return () => {
       channel.untrack()
       supabase.removeChannel(channel)
       channelRef.current = null
+      buffer.clear()
     }
   }, [boardId, userId, userName])
 
@@ -103,15 +125,15 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions) {
     useCallback(
       (cursor: CursorPosition | null) => {
         if (!channelRef.current) return
-        channelRef.current.track({
-          userId,
-          userName,
-          cursor,
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'cursor',
+          payload: { userId, cursor },
         })
       },
-      [userId, userName],
+      [userId],
     ),
-    50,
+    16,
   )
 
   return { others, updateCursor }

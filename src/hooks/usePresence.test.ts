@@ -3,6 +3,7 @@ import { usePresence } from './usePresence'
 
 const mockTrack = vi.fn()
 const mockUntrack = vi.fn()
+const mockSend = vi.fn()
 const mockRemoveChannel = vi.fn()
 const mockPresenceState = vi.fn(() => ({}))
 let subscribeCallback: ((status: string) => void) | null = null
@@ -14,6 +15,7 @@ const mockChannel = {
     return mockChannel
   }),
   track: mockTrack,
+  send: mockSend,
   untrack: mockUntrack,
   presenceState: mockPresenceState,
 }
@@ -40,7 +42,7 @@ describe('usePresence', () => {
     expect(typeof result.current.updateCursor).toBe('function')
   })
 
-  it('subscribes to presence events on mount', () => {
+  it('subscribes to presence and broadcast events on mount', () => {
     renderHook(() =>
       usePresence({ boardId: 'board-1', userId: 'user-1', userName: 'Alice' }),
     )
@@ -48,6 +50,11 @@ describe('usePresence', () => {
     expect(mockChannel.on).toHaveBeenCalledWith(
       'presence',
       { event: 'sync' },
+      expect.any(Function),
+    )
+    expect(mockChannel.on).toHaveBeenCalledWith(
+      'broadcast',
+      { event: 'cursor' },
       expect.any(Function),
     )
     expect(mockChannel.subscribe).toHaveBeenCalled()
@@ -66,7 +73,6 @@ describe('usePresence', () => {
     expect(mockTrack).toHaveBeenCalledWith({
       userId: 'user-1',
       userName: 'Alice',
-      cursor: null,
     })
   })
 

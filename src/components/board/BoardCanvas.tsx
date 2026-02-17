@@ -20,11 +20,13 @@ function generateId() {
 interface BoardCanvasProps {
   boardId?: string
   boardSlug?: string
+  boardName?: string
+  isOwner?: boolean
   userId?: string
   userName?: string
 }
 
-export function BoardCanvas({ boardId, boardSlug, userId, userName }: BoardCanvasProps) {
+export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, userName }: BoardCanvasProps) {
   const [localObjects, setLocalObjects] = useState<CanvasObject[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
@@ -33,6 +35,8 @@ export function BoardCanvas({ boardId, boardSlug, userId, userName }: BoardCanva
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
   const [stageScale, setStageScale] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [showGrid, setShowGrid] = useState(true)
+  const [displayName, setDisplayName] = useState(boardName || '')
 
   // Freedraw state
   const [isDrawing, setIsDrawing] = useState(false)
@@ -381,6 +385,65 @@ export function BoardCanvas({ boardId, boardSlug, userId, userName }: BoardCanva
     if (presenceEnabled) updateCursor(null)
   }, [presenceEnabled, updateCursor])
 
+  const handleZoomIn = useCallback(() => {
+    setStageScale((prev) => Math.min(5, prev * 1.2))
+  }, [])
+
+  const handleZoomOut = useCallback(() => {
+    setStageScale((prev) => Math.max(0.1, prev / 1.2))
+  }, [])
+
+  const handleZoomFit = useCallback(() => {
+    if (objects.length === 0) {
+      setStageScale(1)
+      setStagePos({ x: 0, y: 0 })
+      return
+    }
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const obj of objects) {
+      minX = Math.min(minX, obj.x)
+      minY = Math.min(minY, obj.y)
+      maxX = Math.max(maxX, obj.x + obj.width)
+      maxY = Math.max(maxY, obj.y + obj.height)
+    }
+
+    const padding = 50
+    const contentWidth = maxX - minX + padding * 2
+    const contentHeight = maxY - minY + padding * 2
+
+    const scaleX = stageSize.width / contentWidth
+    const scaleY = stageSize.height / contentHeight
+    const newScale = Math.max(0.1, Math.min(5, Math.min(scaleX, scaleY)))
+
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    setStageScale(newScale)
+    setStagePos({
+      x: stageSize.width / 2 - centerX * newScale,
+      y: stageSize.height / 2 - centerY * newScale,
+    })
+  }, [objects, stageSize])
+
+  const handleRename = useCallback(
+    async (newName: string) => {
+      if (!boardId || !newName.trim()) return
+      setDisplayName(newName.trim())
+      try {
+        await fetch(`/api/boards/${boardId}/rename`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName.trim() }),
+        })
+      } catch (err) {
+        console.error('Failed to rename board:', err)
+        setDisplayName(boardName || '')
+      }
+    },
+    [boardId, boardName],
+  )
+
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -388,10 +451,22 @@ export function BoardCanvas({ boardId, boardSlug, userId, userName }: BoardCanva
       if (e.key === 'Delete' || e.key === 'Backspace') {
         handleDeleteSelected()
       }
+      if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault()
+        handleZoomIn()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '-') {
+        e.preventDefault()
+        handleZoomOut()
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '0') {
+        e.preventDefault()
+        handleZoomFit()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editingId, handleDeleteSelected])
+  }, [editingId, handleDeleteSelected, handleZoomIn, handleZoomOut, handleZoomFit])
 
   return (
     <div className="flex h-screen w-screen flex-col">
@@ -401,10 +476,20 @@ export function BoardCanvas({ boardId, boardSlug, userId, userName }: BoardCanva
         stickyColor={stickyColor}
         selectedId={selectedId}
         boardSlug={boardSlug}
+        boardName={displayName}
+        boardId={boardId}
+        isOwner={isOwner}
+        stageScale={stageScale}
+        showGrid={showGrid}
         onToolChange={setTool}
         onShapeToolChange={setShapeTool}
         onStickyColorChange={setStickyColor}
         onDelete={handleDeleteSelected}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onZoomFit={handleZoomFit}
+        onRename={handleRename}
+        onToggleGrid={() => setShowGrid((prev) => !prev)}
         presenceSlot={
           presenceEnabled ? (
             <PresenceIndicator users={others} currentUserName={userName} />
@@ -440,30 +525,33 @@ export function BoardCanvas({ boardId, boardSlug, userId, userName }: BoardCanva
         >
           <Layer onDraw={handleLayerDraw}>
             {/* Grid dots */}
-            {(() => {
-              const dots = []
-              const gridSize = 40
-              const startX = Math.floor(-stagePos.x / stageScale / gridSize) * gridSize - gridSize
-              const startY = Math.floor(-stagePos.y / stageScale / gridSize) * gridSize - gridSize
-              const endX = startX + stageSize.width / stageScale + gridSize * 2
-              const endY = startY + stageSize.height / stageScale + gridSize * 2
-              for (let x = startX; x < endX; x += gridSize) {
-                for (let y = startY; y < endY; y += gridSize) {
-                  dots.push(
-                    <Rect
-                      key={`dot-${x}-${y}`}
-                      x={x - 1}
-                      y={y - 1}
-                      width={2}
-                      height={2}
-                      fill="#d1d5db"
-                      listening={false}
-                    />,
-                  )
+            {showGrid &&
+              (() => {
+                const dots = []
+                const gridSize = 40
+                const startX =
+                  Math.floor(-stagePos.x / stageScale / gridSize) * gridSize - gridSize
+                const startY =
+                  Math.floor(-stagePos.y / stageScale / gridSize) * gridSize - gridSize
+                const endX = startX + stageSize.width / stageScale + gridSize * 2
+                const endY = startY + stageSize.height / stageScale + gridSize * 2
+                for (let x = startX; x < endX; x += gridSize) {
+                  for (let y = startY; y < endY; y += gridSize) {
+                    dots.push(
+                      <Rect
+                        key={`dot-${x}-${y}`}
+                        x={x - 1}
+                        y={y - 1}
+                        width={2}
+                        height={2}
+                        fill="#d1d5db"
+                        listening={false}
+                      />,
+                    )
+                  }
                 }
-              }
-              return dots
-            })()}
+                return dots
+              })()}
 
             {/* Objects */}
             {objects.map((obj) => (
