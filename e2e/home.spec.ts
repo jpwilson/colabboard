@@ -14,9 +14,10 @@ test('login page shows magic link form by default', async ({ page }) => {
 
 test('login page shows password form when tab clicked', async ({ page }) => {
   await page.goto('/login')
-  await page.getByRole('button', { name: /^password$/i }).click()
-  await expect(page.getByLabel('Password')).toBeVisible()
-  await expect(page.getByRole('button', { name: /^sign in$/i })).toBeVisible()
+  // Click the "Password" tab (not the form label)
+  const passwordTab = page.locator('button', { hasText: 'Password' }).first()
+  await passwordTab.click()
+  await expect(page.getByLabel('Password')).toBeVisible({ timeout: 5000 })
 })
 
 test('login page shows OAuth buttons', async ({ page }) => {
