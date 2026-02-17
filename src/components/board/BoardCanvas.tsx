@@ -50,6 +50,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
+  const hasInitialFit = useRef(false)
 
   useEffect(() => {
     function handleResize() {
@@ -64,6 +65,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
   const {
     objects: syncObjects,
+    loading: syncLoading,
     addObject,
     updateObject,
     deleteObject,
@@ -422,6 +424,52 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       y: stageSize.height / 2 - centerY * newScale,
     })
   }, [objects, stageSize])
+
+  // Auto-fit to content on initial load (industry standard: Miro, FigJam, Excalidraw)
+  // Uses effect to sync with Konva (external system), defers React state update
+  useEffect(() => {
+    if (hasInitialFit.current) return
+    if (syncEnabled && syncLoading) return
+    if (objects.length === 0) return
+
+    hasInitialFit.current = true
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const obj of objects) {
+      minX = Math.min(minX, obj.x)
+      minY = Math.min(minY, obj.y)
+      maxX = Math.max(maxX, obj.x + obj.width)
+      maxY = Math.max(maxY, obj.y + obj.height)
+    }
+
+    const padding = 50
+    const contentWidth = maxX - minX + padding * 2
+    const contentHeight = maxY - minY + padding * 2
+    const scaleX = stageSize.width / contentWidth
+    const scaleY = stageSize.height / contentHeight
+    const fitScale = Math.max(0.1, Math.min(5, Math.min(scaleX, scaleY)))
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+    const fitPos = {
+      x: stageSize.width / 2 - centerX * fitScale,
+      y: stageSize.height / 2 - centerY * fitScale,
+    }
+
+    // Apply to Konva stage immediately (external system — valid in effects)
+    const stage = stageRef.current
+    if (stage) {
+      stage.scale({ x: fitScale, y: fitScale })
+      stage.position(fitPos)
+      stage.batchDraw()
+    }
+
+    // Sync React state on next frame (avoids synchronous setState in effect)
+    requestAnimationFrame(() => {
+      setStageScale(fitScale)
+      setStagePos(fitPos)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncLoading, objects.length])
 
   const handleRename = useCallback(
     async (newName: string) => {
