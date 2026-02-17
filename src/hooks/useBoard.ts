@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import {
   boardObjectToCanvas,
+  canvasToData,
   lwwMerge,
   type BoardObject,
   type BroadcastPayload,
@@ -134,7 +135,7 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         id: obj.id,
         board_id: boardId,
         type: obj.type,
-        data: { fill: obj.fill, text: obj.text || '' },
+        data: canvasToData(obj) as unknown as typeof boardObj.data,
         x: obj.x,
         y: obj.y,
         width: obj.width,
@@ -172,7 +173,7 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         id: updated.id,
         board_id: boardId,
         type: updated.type,
-        data: { fill: updated.fill, text: updated.text || '' },
+        data: canvasToData(updated) as unknown as typeof boardObj.data,
         x: updated.x,
         y: updated.y,
         width: updated.width,
@@ -189,7 +190,7 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         .from('board_objects')
         .update({
           type: updated.type,
-          data: { fill: updated.fill, text: updated.text || '' } as unknown as Record<string, unknown>,
+          data: canvasToData(updated) as unknown as Record<string, unknown>,
           x: updated.x,
           y: updated.y,
           width: updated.width,
