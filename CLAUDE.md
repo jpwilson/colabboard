@@ -23,6 +23,21 @@
 
 ---
 
+## Project Documents
+
+Read these files for context before starting work:
+
+| Document | Purpose |
+|----------|---------|
+| `PRD.md` | Product requirements — what to build, staged deadlines, feature status |
+| `USER_FLOW.md` | User journeys — routes and auth states for each flow |
+| `ERROR_FIX_LOG.md` | Known errors and fixes — check before debugging |
+| `EVALUATOR_TEST_PLAN.md` | Pre-submission checklist — maps to G4 testing scenarios |
+| `G4 Week 1 - CollabBoard.pdf` | Assignment spec (source of truth for requirements) |
+| `Orim_PreSearch_Document.pdf` | Early architecture decisions (directional, not binding) |
+
+---
+
 ## Architecture
 
 - Monolithic Next.js app — no microservices
@@ -233,5 +248,27 @@ Required in `.env.local`:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
+
+---
+
+## AI Guardrails
+
+### Environment Files (Read-Only)
+
+- NEVER modify `.env`, `.env.local`, or `.env.*.example` files without explicit user approval
+- When setting Vercel/CI env vars, use `printf` (not `echo`) to avoid trailing newlines
+- If env var issues arise, check `ERROR_FIX_LOG.md` first
+
+### Error Resolution Protocol
+
+- Before debugging an issue, check `ERROR_FIX_LOG.md` for known solutions
+- After resolving a new error, add an entry to `ERROR_FIX_LOG.md`
+- Include: date, error description, root cause, fix applied, prevention rule
+
+### Tech Stack Lock
+
+- Do NOT introduce new frameworks, libraries, or major dependencies without user approval
+- The stack is: Next.js 16, React 19, Supabase, react-konva, Tailwind v4, Vitest, Playwright
+- If a task seems to need a new dependency, discuss alternatives using existing tools first
