@@ -17,7 +17,7 @@ test('login page shows password form when tab clicked', async ({ page }) => {
   // Click the "Password" tab (not the form label)
   const passwordTab = page.locator('button', { hasText: 'Password' }).first()
   await passwordTab.click()
-  await expect(page.getByLabel('Password')).toBeVisible({ timeout: 5000 })
+  await expect(page.locator('input[type="password"]').first()).toBeVisible({ timeout: 5000 })
 })
 
 test('login page shows OAuth buttons', async ({ page }) => {
