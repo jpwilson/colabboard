@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { OrimLogo } from '@/components/ui/OrimLogo'
 
 type AuthMode = 'sign-in' | 'sign-up'
 type AuthMethod = 'magic-link' | 'password'
@@ -87,14 +88,10 @@ export function LoginForm() {
     <div className="w-full space-y-6">
       {/* Header */}
       <div className="text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-accent">
-          <svg viewBox="0 0 40 40" className="h-8 w-8" fill="none">
-            <circle cx="12" cy="20" r="9" fill="#e6a800" opacity="0.8" />
-            <circle cx="20" cy="20" r="9" fill="#ffca28" opacity="0.8" />
-            <circle cx="28" cy="20" r="9" fill="#ffd54f" opacity="0.8" />
-          </svg>
+        <div className="mb-3 flex justify-center">
+          <OrimLogo size="lg" />
         </div>
-        <h1 className="text-3xl font-bold text-slate-800">
+        <h1 className="text-2xl font-bold text-slate-800">
           {mode === 'sign-in' ? 'Welcome back' : 'Create your account'}
         </h1>
         <p className="mt-2 text-sm text-slate-500">

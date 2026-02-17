@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { ShapeType } from '@/lib/board-sync'
 import { STICKY_COLORS } from '@/lib/shape-defaults'
+import { OrimLogo } from '@/components/ui/OrimLogo'
 
 export type Tool = 'select' | 'sticky_note' | 'shape' | 'freedraw'
 export type ShapeTool = Exclude<ShapeType, 'sticky_note' | 'freedraw'>
@@ -53,7 +54,6 @@ export function Toolbar({
   boardName,
   boardId: _boardId,
   isOwner,
-  stageScale = 1,
   showGrid = true,
   onToolChange,
   onShapeToolChange,
@@ -111,15 +111,12 @@ export function Toolbar({
 
   return (
     <div className="flex items-center gap-1.5 border-b border-slate-200 bg-white px-4 py-2">
-      {/* Back to dashboard */}
+      {/* Logo + Dashboard link */}
       <a
         href="/dashboard"
-        className="flex items-center gap-1 rounded px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-        title="Back to dashboard"
+        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
       >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-        </svg>
+        <OrimLogo size="sm" showText={false} />
         <span className="hidden sm:inline">Dashboard</span>
       </a>
 
@@ -297,7 +294,7 @@ export function Toolbar({
         </button>
       )}
 
-      {/* Zoom controls */}
+      {/* Zoom controls — fit button instead of percentage */}
       {onZoomIn && onZoomOut && (
         <div className="flex items-center gap-0.5">
           <button
@@ -309,10 +306,12 @@ export function Toolbar({
           </button>
           <button
             onClick={onZoomFit}
-            className="min-w-[3.5rem] rounded px-1.5 py-1 text-center text-xs font-medium text-slate-500 hover:bg-slate-100"
+            className="rounded px-1.5 py-1 text-slate-500 hover:bg-slate-100"
             title="Fit to content (Cmd 0)"
           >
-            {Math.round(stageScale * 100)}%
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+            </svg>
           </button>
           <button
             onClick={onZoomIn}

@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createBoard, deleteBoard } from './actions'
+import { createBoard, deleteBoard, renameBoard } from './actions'
 import { NewBoardButton } from './NewBoardButton'
+import { BoardCard } from './BoardCard'
+import { OrimLogo } from '@/components/ui/OrimLogo'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -29,32 +31,56 @@ export default async function DashboardPage() {
     .order('updated_at', { ascending: false })
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <h1 className="text-xl font-bold">Orim</h1>
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      {/* Floating background shapes */}
+      <div
+        className="absolute rounded-full opacity-15 blur-3xl"
+        style={{ left: '-8%', top: '-10%', width: 450, height: 450, background: 'var(--primary-light)', animation: 'float 8s ease-in-out infinite' }}
+        aria-hidden
+      />
+      <div
+        className="absolute rounded-full opacity-15 blur-3xl"
+        style={{ right: '-5%', top: '30%', width: 350, height: 350, background: 'var(--accent)', animation: 'float 10s ease-in-out infinite 1s' }}
+        aria-hidden
+      />
+      <div
+        className="absolute rounded-full opacity-15 blur-3xl"
+        style={{ bottom: '5%', left: '40%', width: 300, height: 300, background: 'var(--teal)', animation: 'float 9s ease-in-out infinite 2s' }}
+        aria-hidden
+      />
+
+      {/* Navigation */}
+      <nav className="fixed top-0 right-0 left-0 z-50 border-b border-white/20 bg-white/60 backdrop-blur-lg">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <a href="/dashboard">
+            <OrimLogo size="md" />
+          </a>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">{user.email}</span>
+            <span className="hidden text-sm text-slate-500 sm:inline">{user.email}</span>
             <form action="/auth/signout" method="post">
               <button
                 type="submit"
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-white/50 hover:text-slate-700"
               >
                 Sign out
               </button>
             </form>
           </div>
         </div>
-      </header>
+      </nav>
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
+      {/* Main content */}
+      <main className="relative mx-auto max-w-6xl px-6 pt-24 pb-12">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Your Boards</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">Your Boards</h2>
+            <p className="mt-1 text-sm text-slate-500">Create, manage, and collaborate on whiteboards</p>
+          </div>
           <NewBoardButton action={createBoard} />
         </div>
 
         {boards && boards.length > 0 ? (
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {boards.map((board) => {
               const memberCount =
                 board.board_members && Array.isArray(board.board_members)
@@ -63,65 +89,40 @@ export default async function DashboardPage() {
               const isOwner = board.owner_id === user.id
 
               return (
-                <div
+                <BoardCard
                   key={board.id}
-                  className="group relative rounded-lg border bg-white p-4 hover:border-blue-300 hover:shadow-sm"
-                >
-                  <a href={`/board/${board.slug}`} className="block">
-                    <h3 className="font-medium group-hover:text-blue-600">
-                      {board.name}
-                    </h3>
-                    <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
-                      <span>
-                        {new Date(board.updated_at).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </span>
-                      {memberCount > 1 && (
-                        <span>{memberCount} members</span>
-                      )}
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
-                        {isOwner ? 'Owner' : 'Shared'}
-                      </span>
-                    </div>
-                  </a>
-                  {isOwner && (
-                    <form
-                      action={deleteBoard.bind(null, board.id)}
-                      className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100"
-                    >
-                      <button
-                        type="submit"
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                        title="Delete board"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="h-4 w-4"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </form>
-                  )}
-                </div>
+                  board={board}
+                  memberCount={memberCount}
+                  isOwner={isOwner}
+                  renameAction={renameBoard}
+                  deleteAction={deleteBoard}
+                />
               )
             })}
           </div>
         ) : (
-          <div className="mt-12 text-center">
-            <p className="text-gray-500">No boards yet. Create your first one!</p>
+          <div className="mt-16 text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/50 shadow-lg backdrop-blur-md">
+              <svg className="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V4.5a1.5 1.5 0 00-1.5-1.5H3.75a1.5 1.5 0 00-1.5 1.5v15a1.5 1.5 0 001.5 1.5z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-700">No boards yet</h3>
+            <p className="mt-1 text-sm text-slate-500">Create your first board to start collaborating!</p>
+            <div className="mt-6">
+              <NewBoardButton action={createBoard} />
+            </div>
           </div>
         )}
-      </div>
-    </main>
+      </main>
+
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          33% { transform: translateY(-20px) rotate(1deg); }
+          66% { transform: translateY(10px) rotate(-1deg); }
+        }
+      `}</style>
+    </div>
   )
 }

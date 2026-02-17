@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { OrimLogo } from '@/components/ui/OrimLogo'
 
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null)
@@ -101,16 +102,7 @@ export function LandingPage() {
       {/* Navigation */}
       <nav className="fixed top-0 right-0 left-0 z-50 border-b border-white/20 bg-white/60 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent">
-              <svg viewBox="0 0 40 40" className="h-5 w-5" fill="none">
-                <circle cx="12" cy="20" r="9" fill="#e6a800" opacity="0.8" />
-                <circle cx="20" cy="20" r="9" fill="#ffca28" opacity="0.8" />
-                <circle cx="28" cy="20" r="9" fill="#ffd54f" opacity="0.8" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold text-slate-800">Orim</span>
-          </div>
+          <OrimLogo size="md" />
           <div className="flex items-center gap-3">
             <Link
               href="/login"
@@ -391,16 +383,7 @@ export function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-white/20 bg-white/30 px-6 py-8 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent">
-              <svg viewBox="0 0 40 40" className="h-4 w-4" fill="none">
-                <circle cx="12" cy="20" r="9" fill="#e6a800" opacity="0.8" />
-                <circle cx="20" cy="20" r="9" fill="#ffca28" opacity="0.8" />
-                <circle cx="28" cy="20" r="9" fill="#ffd54f" opacity="0.8" />
-              </svg>
-            </div>
-            <span className="text-sm font-semibold text-slate-700">Orim</span>
-          </div>
+          <OrimLogo size="sm" />
           <p className="text-sm text-slate-500">Built for Gauntlet G4 Week 1</p>
         </div>
       </footer>

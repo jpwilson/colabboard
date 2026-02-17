@@ -36,6 +36,23 @@ export async function createBoard(formData: FormData) {
   redirect(`/board/${board.slug}`)
 }
 
+export async function renameBoard(boardId: string, formData: FormData) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/login')
+  }
+
+  const name = (formData.get('name') as string)?.trim()
+  if (!name) return
+
+  await supabase.from('boards').update({ name }).eq('id', boardId).eq('owner_id', user.id)
+  redirect('/dashboard')
+}
+
 export async function deleteBoard(boardId: string) {
   const supabase = await createClient()
   const {
