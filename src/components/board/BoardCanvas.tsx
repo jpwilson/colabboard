@@ -207,13 +207,10 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
   const handleMouseMoveCanvas = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      // Cursor presence
+      // Cursor presence — send in world coordinates (same space as objects)
       if (presenceEnabled) {
-        const stage = e.target.getStage()
-        if (stage) {
-          const pointer = stage.getPointerPosition()
-          if (pointer) updateCursor({ x: pointer.x, y: pointer.y })
-        }
+        const pos = getCanvasPos(e)
+        if (pos) updateCursor(pos)
       }
 
       // Freedraw
@@ -590,7 +587,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
             {/* Remote cursors */}
             {presenceEnabled && (
-              <CursorOverlay users={others} stagePos={stagePos} stageScale={stageScale} />
+              <CursorOverlay users={others} stageScale={stageScale} />
             )}
           </Layer>
         </Stage>

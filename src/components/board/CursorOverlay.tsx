@@ -3,17 +3,16 @@ import type { PresenceUser } from '@/hooks/usePresence'
 
 interface CursorOverlayProps {
   users: PresenceUser[]
-  stagePos: { x: number; y: number }
   stageScale: number
 }
 
-function CursorArrow({ user }: { user: PresenceUser }) {
+function CursorArrow({ user, inverseScale }: { user: PresenceUser; inverseScale: number }) {
   if (!user.cursor) return null
 
   const { x, y } = user.cursor
 
   return (
-    <Group x={x} y={y}>
+    <Group x={x} y={y} scaleX={inverseScale} scaleY={inverseScale}>
       {/* Arrow cursor */}
       <Line
         points={[0, 0, 4, 14, 8, 10, 16, 16, 18, 14, 10, 8, 14, 4]}
@@ -46,23 +45,20 @@ function CursorArrow({ user }: { user: PresenceUser }) {
   )
 }
 
-export function CursorOverlay({ users, stagePos, stageScale }: CursorOverlayProps) {
-  // Transform cursors from canvas coordinates to screen coordinates
-  // Cursors are stored in canvas (world) coordinates, render directly
+export function CursorOverlay({ users, stageScale }: CursorOverlayProps) {
+  // Cursors are in world coordinates (same space as objects).
+  // Render directly — the Stage transform handles pan/zoom.
+  // Counter-scale arrow/label so they stay the same visual size.
   const visibleUsers = users.filter((u) => u.cursor !== null)
 
   if (visibleUsers.length === 0) return null
 
+  const inverseScale = 1 / stageScale
+
   return (
-    <Group
-      x={-stagePos.x / stageScale}
-      y={-stagePos.y / stageScale}
-      scaleX={1 / stageScale}
-      scaleY={1 / stageScale}
-      listening={false}
-    >
+    <Group listening={false}>
       {visibleUsers.map((user) => (
-        <CursorArrow key={user.userId} user={user} />
+        <CursorArrow key={user.userId} user={user} inverseScale={inverseScale} />
       ))}
     </Group>
   )
