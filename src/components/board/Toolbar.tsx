@@ -26,6 +26,7 @@ interface ToolbarProps {
   shapeTool: ShapeTool
   stickyColor: string
   selectedId: string | null
+  boardSlug?: string
   onToolChange: (tool: Tool) => void
   onShapeToolChange: (shape: ShapeTool) => void
   onStickyColorChange: (color: string) => void
@@ -38,6 +39,7 @@ export function Toolbar({
   shapeTool,
   stickyColor,
   selectedId,
+  boardSlug,
   onToolChange,
   onShapeToolChange,
   onStickyColorChange,
@@ -46,6 +48,7 @@ export function Toolbar({
 }: ToolbarProps) {
   const [shapeDropdownOpen, setShapeDropdownOpen] = useState(false)
   const [stickyDropdownOpen, setStickyDropdownOpen] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
   const shapeDropdownRef = useRef<HTMLDivElement>(null)
   const stickyDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -206,6 +209,38 @@ export function Toolbar({
 
       <div className="flex-1" />
       {presenceSlot}
+
+      {/* Share button */}
+      {boardSlug && (
+        <button
+          onClick={() => {
+            const url = `${window.location.origin}/board/${boardSlug}/join`
+            navigator.clipboard.writeText(url)
+            setShareCopied(true)
+            setTimeout(() => setShareCopied(false), 2000)
+          }}
+          className="rounded px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+          title="Copy invite link"
+        >
+          <svg className="mr-1 inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+          </svg>
+          {shareCopied ? 'Link copied!' : 'Share'}
+        </button>
+      )}
+
+      <div className="h-5 w-px bg-slate-200" />
+
+      {/* Back to dashboard */}
+      <a
+        href="/dashboard"
+        className="rounded px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+        title="Back to dashboard"
+      >
+        <svg className="inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+        </svg>
+      </a>
 
       {/* Help text */}
       <span className="text-xs text-slate-400">

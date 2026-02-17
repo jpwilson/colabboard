@@ -46,5 +46,5 @@ export default async function BoardPage({ params }: BoardPageProps) {
 
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous'
 
-  return <BoardCanvasLoader boardId={board.id} userId={user.id} userName={userName} />
+  return <BoardCanvasLoader boardId={board.id} boardSlug={board.slug} userId={user.id} userName={userName} />
 }

@@ -19,11 +19,12 @@ function generateId() {
 
 interface BoardCanvasProps {
   boardId?: string
+  boardSlug?: string
   userId?: string
   userName?: string
 }
 
-export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
+export function BoardCanvas({ boardId, boardSlug, userId, userName }: BoardCanvasProps) {
   const [localObjects, setLocalObjects] = useState<CanvasObject[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
@@ -399,6 +400,7 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
         shapeTool={shapeTool}
         stickyColor={stickyColor}
         selectedId={selectedId}
+        boardSlug={boardSlug}
         onToolChange={setTool}
         onShapeToolChange={setShapeTool}
         onStickyColorChange={setStickyColor}
