@@ -44,7 +44,7 @@ export default async function LoginPage() {
 
       {/* Main content — split layout on lg+ */}
       <main className="relative flex min-h-screen items-center justify-center px-4 pt-20 pb-8">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-12 lg:flex-row lg:items-center lg:gap-16">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-12 lg:flex-row lg:items-center lg:justify-between lg:gap-24">
           {/* Left: Sign-in card */}
           <div className="w-full max-w-md lg:flex-shrink-0">
             <div className="overflow-hidden rounded-2xl border border-white/30 bg-white/50 p-8 shadow-2xl backdrop-blur-md sm:p-10">

@@ -384,7 +384,7 @@ export function LandingPage() {
       <footer className="border-t border-white/20 bg-white/30 px-6 py-8 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <OrimLogo size="sm" />
-          <p className="text-sm text-slate-500">Built for Gauntlet G4 Week 1</p>
+          <p className="text-sm text-slate-500">Built for Gauntlet G4 Week 1 - by JP</p>
         </div>
       </footer>
 
