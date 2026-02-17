@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Inter, Caveat, IBM_Plex_Mono, Nunito } from 'next/font/google'
 import './globals.css'
 
 const geistSans = Geist({
@@ -11,6 +11,16 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 })
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
+const caveat = Caveat({ subsets: ['latin'], variable: '--font-caveat', display: 'swap' })
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ['400', '500'],
+  subsets: ['latin'],
+  variable: '--font-ibm-plex-mono',
+  display: 'swap',
+})
+const nunito = Nunito({ subsets: ['latin'], variable: '--font-nunito', display: 'swap' })
 
 export const metadata: Metadata = {
   title: 'Orim - Collaborative Whiteboard',
@@ -24,7 +34,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${caveat.variable} ${ibmPlexMono.variable} ${nunito.variable} antialiased`}>
         {children}
       </body>
     </html>

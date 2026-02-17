@@ -1,17 +1,17 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Stage, Layer, Rect, Text, Group, Transformer } from 'react-konva'
+import { Stage, Layer, Rect, Line, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { usePresence } from '@/hooks/usePresence'
 import { useBoard } from '@/hooks/useBoard'
 import { CursorOverlay } from './CursorOverlay'
 import { PresenceIndicator } from './PresenceIndicator'
-import type { CanvasObject } from '@/lib/board-sync'
-
-type Tool = 'select' | 'sticky_note' | 'rectangle'
-
-const STICKY_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fde68a', '#c4b5fd']
+import { ShapeRenderer } from './ShapeRenderer'
+import { Toolbar, type Tool, type ShapeTool } from './Toolbar'
+import { PropertiesPanel } from './PropertiesPanel'
+import { SHAPE_DEFAULTS, STICKY_COLORS } from '@/lib/shape-defaults'
+import type { CanvasObject, ShapeType } from '@/lib/board-sync'
 
 function generateId() {
   return crypto.randomUUID()
@@ -24,13 +24,19 @@ interface BoardCanvasProps {
 }
 
 export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
-  // Local-only state (used when no boardId)
   const [localObjects, setLocalObjects] = useState<CanvasObject[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [tool, setTool] = useState<Tool>('select')
+  const [shapeTool, setShapeTool] = useState<ShapeTool>('rectangle')
+  const [stickyColor, setStickyColor] = useState(STICKY_COLORS[0])
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
   const [stageScale, setStageScale] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  // Freedraw state
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [currentDrawPoints, setCurrentDrawPoints] = useState<number[]>([])
+  const drawingPointsRef = useRef<number[]>([])
 
   const [stageSize, setStageSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1200,
@@ -67,9 +73,49 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
     userName: userName || '',
   })
 
-  // Use synced objects when connected, local objects otherwise
   const objects = syncEnabled ? syncObjects : localObjects
   const nextZIndex = objects.length > 0 ? Math.max(...objects.map((o) => o.z_index)) + 1 : 0
+  const selectedObject = objects.find((o) => o.id === selectedId) || null
+
+  // Helper to add an object (synced or local)
+  const addObjectHelper = useCallback(
+    (obj: CanvasObject) => {
+      if (syncEnabled) {
+        addObject(obj)
+      } else {
+        setLocalObjects((prev) => [...prev, obj])
+      }
+    },
+    [syncEnabled, addObject],
+  )
+
+  // Helper to update an object (synced or local)
+  const updateObjectHelper = useCallback(
+    (id: string, updates: Partial<CanvasObject>) => {
+      if (syncEnabled) {
+        updateObject(id, updates)
+      } else {
+        setLocalObjects((prev) =>
+          prev.map((obj) => (obj.id === id ? { ...obj, ...updates } : obj)),
+        )
+      }
+    },
+    [syncEnabled, updateObject],
+  )
+
+  const getCanvasPos = useCallback(
+    (_e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+      const stage = stageRef.current
+      if (!stage) return null
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return null
+      return {
+        x: (pointer.x - stagePos.x) / stageScale,
+        y: (pointer.y - stagePos.y) / stageScale,
+      }
+    },
+    [stagePos, stageScale],
+  )
 
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
@@ -98,63 +144,125 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
 
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-      if (e.target === e.target.getStage()) {
-        if (tool === 'select') {
-          setSelectedId(null)
-          return
-        }
-
-        const stage = stageRef.current
-        if (!stage) return
-        const pointer = stage.getPointerPosition()
-        if (!pointer) return
-
-        const x = (pointer.x - stagePos.x) / stageScale
-        const y = (pointer.y - stagePos.y) / stageScale
-        const now = new Date().toISOString()
-
-        if (tool === 'sticky_note') {
-          const newObj: CanvasObject = {
-            id: generateId(),
-            type: 'sticky_note',
-            x: x - 75,
-            y: y - 75,
-            width: 150,
-            height: 150,
-            fill: STICKY_COLORS[Math.floor(Math.random() * STICKY_COLORS.length)],
-            text: 'Double-click to edit',
-            z_index: nextZIndex,
-            updated_at: now,
-          }
-          if (syncEnabled) {
-            addObject(newObj)
-          } else {
-            setLocalObjects((prev) => [...prev, newObj])
-          }
-        } else if (tool === 'rectangle') {
-          const newObj: CanvasObject = {
-            id: generateId(),
-            type: 'rectangle',
-            x: x - 60,
-            y: y - 40,
-            width: 120,
-            height: 80,
-            fill: '#e2e8f0',
-            z_index: nextZIndex,
-            updated_at: now,
-          }
-          if (syncEnabled) {
-            addObject(newObj)
-          } else {
-            setLocalObjects((prev) => [...prev, newObj])
-          }
-        }
-
-        setTool('select')
+      if (e.target !== e.target.getStage()) return
+      if (tool === 'select') {
+        setSelectedId(null)
+        return
       }
+      if (tool === 'freedraw') return // handled by mousedown/up
+
+      const pos = getCanvasPos(e)
+      if (!pos) return
+      const now = new Date().toISOString()
+
+      let shapeType: ShapeType
+      if (tool === 'sticky_note') {
+        shapeType = 'sticky_note'
+      } else {
+        shapeType = shapeTool
+      }
+
+      const defaults = SHAPE_DEFAULTS[shapeType]
+      const newObj: CanvasObject = {
+        id: generateId(),
+        type: shapeType,
+        x: pos.x - defaults.width / 2,
+        y: pos.y - defaults.height / 2,
+        width: defaults.width,
+        height: defaults.height,
+        fill: shapeType === 'sticky_note' ? stickyColor : defaults.fill,
+        stroke: defaults.stroke,
+        strokeWidth: defaults.strokeWidth,
+        text: shapeType === 'sticky_note' ? 'Double-click to edit' : undefined,
+        z_index: nextZIndex,
+        updated_at: now,
+      }
+
+      addObjectHelper(newObj)
+      setTool('select')
     },
-    [tool, stagePos, stageScale, syncEnabled, addObject, nextZIndex],
+    [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper],
   )
+
+  // Freedraw handlers
+  const handleMouseDown = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (tool !== 'freedraw') return
+      if (e.target !== e.target.getStage()) return
+
+      const pos = getCanvasPos(e)
+      if (!pos) return
+
+      setIsDrawing(true)
+      drawingPointsRef.current = [pos.x, pos.y]
+      setCurrentDrawPoints([pos.x, pos.y])
+    },
+    [tool, getCanvasPos],
+  )
+
+  const handleMouseMoveCanvas = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      // Cursor presence
+      if (presenceEnabled) {
+        const stage = e.target.getStage()
+        if (stage) {
+          const pointer = stage.getPointerPosition()
+          if (pointer) updateCursor({ x: pointer.x, y: pointer.y })
+        }
+      }
+
+      // Freedraw
+      if (!isDrawing || tool !== 'freedraw') return
+      const pos = getCanvasPos(e)
+      if (!pos) return
+
+      drawingPointsRef.current = [...drawingPointsRef.current, pos.x, pos.y]
+      setCurrentDrawPoints([...drawingPointsRef.current])
+    },
+    [isDrawing, tool, getCanvasPos, presenceEnabled, updateCursor],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDrawing || tool !== 'freedraw') return
+    setIsDrawing(false)
+
+    const points = drawingPointsRef.current
+    if (points.length < 4) {
+      drawingPointsRef.current = []
+      setCurrentDrawPoints([])
+      return
+    }
+
+    // Compute bounding box
+    const xs = points.filter((_, i) => i % 2 === 0)
+    const ys = points.filter((_, i) => i % 2 === 1)
+    const minX = Math.min(...xs)
+    const minY = Math.min(...ys)
+    const maxX = Math.max(...xs)
+    const maxY = Math.max(...ys)
+
+    // Normalize points relative to top-left
+    const normalizedPoints = points.map((v, i) => (i % 2 === 0 ? v - minX : v - minY))
+
+    const newObj: CanvasObject = {
+      id: generateId(),
+      type: 'freedraw',
+      x: minX,
+      y: minY,
+      width: Math.max(maxX - minX, 1),
+      height: Math.max(maxY - minY, 1),
+      fill: 'transparent',
+      stroke: '#1f2937',
+      strokeWidth: 3,
+      points: normalizedPoints,
+      z_index: nextZIndex,
+      updated_at: new Date().toISOString(),
+    }
+
+    addObjectHelper(newObj)
+    drawingPointsRef.current = []
+    setCurrentDrawPoints([])
+  }, [isDrawing, tool, nextZIndex, addObjectHelper])
 
   const handleSelect = useCallback((id: string) => {
     setSelectedId(id)
@@ -163,13 +271,9 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
 
   const handleDragEnd = useCallback(
     (id: string, x: number, y: number) => {
-      if (syncEnabled) {
-        updateObject(id, { x, y })
-      } else {
-        setLocalObjects((prev) => prev.map((obj) => (obj.id === id ? { ...obj, x, y } : obj)))
-      }
+      updateObjectHelper(id, { x, y })
     },
-    [syncEnabled, updateObject],
+    [updateObjectHelper],
   )
 
   const handleTransformEnd = useCallback(
@@ -179,22 +283,14 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
       node.scaleX(1)
       node.scaleY(1)
 
-      const updates = {
+      updateObjectHelper(id, {
         x: node.x(),
         y: node.y(),
         width: Math.max(20, node.width() * scaleX),
         height: Math.max(20, node.height() * scaleY),
-      }
-
-      if (syncEnabled) {
-        updateObject(id, updates)
-      } else {
-        setLocalObjects((prev) =>
-          prev.map((obj) => (obj.id === id ? { ...obj, ...updates } : obj)),
-        )
-      }
+      })
     },
-    [syncEnabled, updateObject],
+    [updateObjectHelper],
   )
 
   const handleDoubleClick = useCallback(
@@ -226,7 +322,7 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
       textarea.style.width = `${(obj.width - 20) * stageScale}px`
       textarea.style.height = `${(obj.height - 20) * stageScale}px`
       textarea.style.fontSize = `${14 * stageScale}px`
-      textarea.style.fontFamily = 'sans-serif'
+      textarea.style.fontFamily = obj.fontFamily || 'sans-serif'
       textarea.style.border = 'none'
       textarea.style.padding = '0'
       textarea.style.margin = '0'
@@ -239,29 +335,19 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
       textarea.focus()
 
       const handleBlur = () => {
-        const newText = textarea.value
-        if (syncEnabled) {
-          updateObject(id, { text: newText })
-        } else {
-          setLocalObjects((prev) =>
-            prev.map((o) => (o.id === id ? { ...o, text: newText } : o)),
-          )
-        }
+        updateObjectHelper(id, { text: textarea.value })
         textarea.remove()
         setEditingId(null)
       }
 
       textarea.addEventListener('blur', handleBlur)
       textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-          textarea.blur()
-        }
+        if (e.key === 'Escape') textarea.blur()
       })
     },
-    [objects, stageScale, syncEnabled, updateObject],
+    [objects, stageScale, updateObjectHelper],
   )
 
-  // Sync transformer to selected node
   const handleLayerDraw = useCallback(() => {
     const transformer = transformerRef.current
     if (!transformer) return
@@ -280,7 +366,7 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
     transformer.getLayer()?.batchDraw()
   }, [selectedId])
 
-  const handleDelete = useCallback(() => {
+  const handleDeleteSelected = useCallback(() => {
     if (!selectedId) return
     if (syncEnabled) {
       deleteObject(selectedId)
@@ -290,83 +376,44 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
     setSelectedId(null)
   }, [selectedId, syncEnabled, deleteObject])
 
-  const handleMouseMove = useCallback(
-    (e: Konva.KonvaEventObject<MouseEvent>) => {
-      if (!presenceEnabled) return
-      const stage = e.target.getStage()
-      if (!stage) return
-      const pointer = stage.getPointerPosition()
-      if (!pointer) return
-
-      updateCursor({ x: pointer.x, y: pointer.y })
-    },
-    [presenceEnabled, updateCursor],
-  )
-
   const handleMouseLeave = useCallback(() => {
-    if (!presenceEnabled) return
-    updateCursor(null)
+    if (presenceEnabled) updateCursor(null)
   }, [presenceEnabled, updateCursor])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (editingId) return
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        handleDeleteSelected()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [editingId, handleDeleteSelected])
 
   return (
     <div className="flex h-screen w-screen flex-col">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 border-b bg-white px-4 py-2">
-        <span className="mr-2 text-sm font-semibold text-gray-500">Orim</span>
-        <div className="h-4 w-px bg-gray-300" />
-        <button
-          onClick={() => setTool('select')}
-          className={`rounded px-3 py-1.5 text-sm ${
-            tool === 'select' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          Select
-        </button>
-        <button
-          onClick={() => setTool('sticky_note')}
-          className={`rounded px-3 py-1.5 text-sm ${
-            tool === 'sticky_note'
-              ? 'bg-yellow-100 text-yellow-700'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          Sticky Note
-        </button>
-        <button
-          onClick={() => setTool('rectangle')}
-          className={`rounded px-3 py-1.5 text-sm ${
-            tool === 'rectangle'
-              ? 'bg-slate-200 text-slate-700'
-              : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          Rectangle
-        </button>
-        {selectedId && (
-          <>
-            <div className="h-4 w-px bg-gray-300" />
-            <button
-              onClick={handleDelete}
-              className="rounded px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-            >
-              Delete
-            </button>
-          </>
-        )}
-        <div className="flex-1" />
-        {presenceEnabled && (
-          <PresenceIndicator users={others} currentUserName={userName} />
-        )}
-        {presenceEnabled && others.length > 0 && <div className="h-4 w-px bg-gray-300" />}
-        <span className="text-xs text-gray-400">
-          {tool === 'select'
-            ? 'Click objects to select, scroll to zoom, drag canvas to pan'
-            : `Click on canvas to place ${tool === 'sticky_note' ? 'sticky note' : 'rectangle'}`}
-        </span>
-      </div>
+      <Toolbar
+        tool={tool}
+        shapeTool={shapeTool}
+        stickyColor={stickyColor}
+        selectedId={selectedId}
+        onToolChange={setTool}
+        onShapeToolChange={setShapeTool}
+        onStickyColorChange={setStickyColor}
+        onDelete={handleDeleteSelected}
+        presenceSlot={
+          presenceEnabled ? (
+            <PresenceIndicator users={others} currentUserName={userName} />
+          ) : undefined
+        }
+      />
 
-      {/* Canvas */}
       <div className="relative flex-1 overflow-hidden bg-gray-50">
+        {/* Properties panel */}
+        <PropertiesPanel selectedObject={selectedObject} onUpdate={updateObjectHelper} />
+
         <Stage
           ref={stageRef}
           width={stageSize.width}
@@ -379,7 +426,9 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
           onWheel={handleWheel}
           onClick={handleStageClick}
           onTap={handleStageClick}
-          onMouseMove={handleMouseMove}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMoveCanvas}
+          onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
           onDragEnd={(e) => {
             if (e.target === e.target.getStage()) {
@@ -394,12 +443,8 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
               const gridSize = 40
               const startX = Math.floor(-stagePos.x / stageScale / gridSize) * gridSize - gridSize
               const startY = Math.floor(-stagePos.y / stageScale / gridSize) * gridSize - gridSize
-              const endX =
-                startX + (stageSize.width) / stageScale + gridSize * 2
-              const endY =
-                startY +
-                (stageSize.height) / stageScale +
-                gridSize * 2
+              const endX = startX + stageSize.width / stageScale + gridSize * 2
+              const endY = startY + stageSize.height / stageScale + gridSize * 2
               for (let x = startX; x < endX; x += gridSize) {
                 for (let y = startY; y < endY; y += gridSize) {
                   dots.push(
@@ -419,79 +464,36 @@ export function BoardCanvas({ boardId, userId, userName }: BoardCanvasProps) {
             })()}
 
             {/* Objects */}
-            {objects.map((obj) => {
-              if (obj.type === 'sticky_note') {
-                return (
-                  <Group
-                    key={obj.id}
-                    id={obj.id}
-                    x={obj.x}
-                    y={obj.y}
-                    width={obj.width}
-                    height={obj.height}
-                    draggable
-                    onClick={() => handleSelect(obj.id)}
-                    onTap={() => handleSelect(obj.id)}
-                    onDblClick={() => handleDoubleClick(obj.id)}
-                    onDblTap={() => handleDoubleClick(obj.id)}
-                    onDragEnd={(e) => handleDragEnd(obj.id, e.target.x(), e.target.y())}
-                    onTransformEnd={(e) => handleTransformEnd(obj.id, e.target)}
-                  >
-                    <Rect
-                      width={obj.width}
-                      height={obj.height}
-                      fill={obj.fill}
-                      shadowColor="rgba(0,0,0,0.1)"
-                      shadowBlur={8}
-                      shadowOffsetY={2}
-                      cornerRadius={4}
-                    />
-                    {editingId !== obj.id && (
-                      <Text
-                        id={`text-${obj.id}`}
-                        x={10}
-                        y={10}
-                        width={obj.width - 20}
-                        height={obj.height - 20}
-                        text={obj.text || ''}
-                        fontSize={14}
-                        fontFamily="sans-serif"
-                        fill="#1f2937"
-                        lineHeight={1.4}
-                      />
-                    )}
-                  </Group>
-                )
-              }
+            {objects.map((obj) => (
+              <ShapeRenderer
+                key={obj.id}
+                obj={obj}
+                isEditing={editingId === obj.id}
+                onSelect={handleSelect}
+                onDoubleClick={handleDoubleClick}
+                onDragEnd={handleDragEnd}
+                onTransformEnd={handleTransformEnd}
+              />
+            ))}
 
-              return (
-                <Rect
-                  key={obj.id}
-                  id={obj.id}
-                  x={obj.x}
-                  y={obj.y}
-                  width={obj.width}
-                  height={obj.height}
-                  fill={obj.fill}
-                  stroke="#94a3b8"
-                  strokeWidth={1}
-                  cornerRadius={4}
-                  draggable
-                  onClick={() => handleSelect(obj.id)}
-                  onTap={() => handleSelect(obj.id)}
-                  onDragEnd={(e) => handleDragEnd(obj.id, e.target.x(), e.target.y())}
-                  onTransformEnd={(e) => handleTransformEnd(obj.id, e.target)}
-                />
-              )
-            })}
+            {/* In-progress freedraw preview */}
+            {isDrawing && currentDrawPoints.length >= 4 && (
+              <Line
+                points={currentDrawPoints}
+                stroke="#1f2937"
+                strokeWidth={3}
+                tension={0.5}
+                lineCap="round"
+                lineJoin="round"
+                listening={false}
+              />
+            )}
 
             {/* Transformer */}
             <Transformer
               ref={transformerRef}
               boundBoxFunc={(_oldBox, newBox) => {
-                if (newBox.width < 20 || newBox.height < 20) {
-                  return _oldBox
-                }
+                if (newBox.width < 20 || newBox.height < 20) return _oldBox
                 return newBox
               }}
             />
