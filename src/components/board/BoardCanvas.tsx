@@ -784,9 +784,22 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
                 const toCx = toObj.x + toObj.width / 2
                 const toCy = toObj.y + toObj.height / 2
 
-                const start = edgePoint(fromCx, fromCy, fromObj.width, fromObj.height, toCx, toCy)
-                const end = edgePoint(toCx, toCy, toObj.width, toObj.height, fromCx, fromCy)
-                const pts = [start.x, start.y, end.x, end.y]
+                // If an endpoint of this connector is being dragged, use the drag position
+                const isDraggingFrom = draggingEndpoint?.connectorId === obj.id && draggingEndpoint.end === 'from'
+                const isDraggingTo = draggingEndpoint?.connectorId === obj.id && draggingEndpoint.end === 'to'
+
+                let pts: number[]
+                if (isDraggingFrom) {
+                  const end = edgePoint(toCx, toCy, toObj.width, toObj.height, draggingEndpoint.x, draggingEndpoint.y)
+                  pts = [draggingEndpoint.x, draggingEndpoint.y, end.x, end.y]
+                } else if (isDraggingTo) {
+                  const start = edgePoint(fromCx, fromCy, fromObj.width, fromObj.height, draggingEndpoint.x, draggingEndpoint.y)
+                  pts = [start.x, start.y, draggingEndpoint.x, draggingEndpoint.y]
+                } else {
+                  const start = edgePoint(fromCx, fromCy, fromObj.width, fromObj.height, toCx, toCy)
+                  const end = edgePoint(toCx, toCy, toObj.width, toObj.height, fromCx, fromCy)
+                  pts = [start.x, start.y, end.x, end.y]
+                }
                 return (
                   <ShapeRenderer
                     key={obj.id}
