@@ -157,9 +157,11 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     const pointer = stage.getPointerPosition()
     if (!pointer) return
 
-    const scaleBy = 1.05
+    // Adaptive zoom: smooth in normal range, accelerates at extreme levels
+    const dist = Math.max(0, Math.abs(Math.log2(oldScale)) - 1)
+    const scaleBy = 1.08 + dist * 0.06
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy
-    const clampedScale = Math.max(0.1, Math.min(5, newScale))
+    const clampedScale = Math.max(0.02, Math.min(10, newScale))
 
     const mousePointTo = {
       x: (pointer.x - stage.x()) / oldScale,
@@ -481,11 +483,17 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   }, [presenceEnabled, updateCursor])
 
   const handleZoomIn = useCallback(() => {
-    setStageScale((prev) => Math.min(5, prev * 1.2))
+    setStageScale((prev) => {
+      const dist = Math.max(0, Math.abs(Math.log2(prev)) - 1)
+      return Math.min(10, prev * (1.2 + dist * 0.08))
+    })
   }, [])
 
   const handleZoomOut = useCallback(() => {
-    setStageScale((prev) => Math.max(0.1, prev / 1.2))
+    setStageScale((prev) => {
+      const dist = Math.max(0, Math.abs(Math.log2(prev)) - 1)
+      return Math.max(0.02, prev / (1.2 + dist * 0.08))
+    })
   }, [])
 
   const handleZoomFit = useCallback(() => {
@@ -509,7 +517,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
     const scaleX = stageSize.width / contentWidth
     const scaleY = stageSize.height / contentHeight
-    const newScale = Math.max(0.1, Math.min(5, Math.min(scaleX, scaleY)))
+    const newScale = Math.max(0.02, Math.min(10, Math.min(scaleX, scaleY)))
 
     const centerX = (minX + maxX) / 2
     const centerY = (minY + maxY) / 2
@@ -543,7 +551,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     const contentHeight = maxY - minY + padding * 2
     const scaleX = stageSize.width / contentWidth
     const scaleY = stageSize.height / contentHeight
-    const fitScale = Math.max(0.1, Math.min(5, Math.min(scaleX, scaleY)))
+    const fitScale = Math.max(0.02, Math.min(10, Math.min(scaleX, scaleY)))
     const centerX = (minX + maxX) / 2
     const centerY = (minY + maxY) / 2
     const fitPos = {
