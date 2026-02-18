@@ -17,13 +17,60 @@ export function PropertiesPanel({ selectedObject, onUpdate }: PropertiesPanelPro
   const isSticky = obj.type === 'sticky_note'
   const isFreedraw = obj.type === 'freedraw'
   const isLine = obj.type === 'line' || obj.type === 'arrow'
+  const isConnector = obj.type === 'connector'
+
+  const typeLabel: Record<string, string> = {
+    sticky_note: 'Sticky Note',
+    rectangle: 'Rectangle',
+    rounded_rectangle: 'Rounded Rect',
+    circle: 'Circle',
+    ellipse: 'Ellipse',
+    triangle: 'Triangle',
+    diamond: 'Diamond',
+    star: 'Star',
+    hexagon: 'Hexagon',
+    pentagon: 'Pentagon',
+    arrow: 'Arrow',
+    line: 'Line',
+    freedraw: 'Drawing',
+    connector: 'Connector',
+  }
 
   return (
     <div className="absolute right-3 top-14 z-40 w-52 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Properties</p>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {typeLabel[obj.type] || 'Properties'}
+      </p>
 
-      {/* Fill color — not for line/arrow/freedraw */}
-      {!isFreedraw && !isLine && (
+      {/* Arrow direction — for connectors */}
+      {isConnector && (
+        <div className="mb-3">
+          <p className="text-xs font-medium text-slate-500">Arrow style</p>
+          <div className="mt-1 flex gap-1">
+            {([
+              { value: 'none', label: '—' },
+              { value: 'arrow-end', label: '→' },
+              { value: 'arrow-start', label: '←' },
+              { value: 'arrow-both', label: '↔' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => onUpdate(obj.id, { connectorStyle: opt.value })}
+                className={`flex-1 rounded border px-2 py-1 text-xs ${
+                  (obj.connectorStyle || 'arrow-end') === opt.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fill color — not for line/arrow/freedraw/connector */}
+      {!isFreedraw && !isLine && !isConnector && (
         <div className="mb-3">
           <ColorPicker
             label="Fill"

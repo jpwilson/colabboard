@@ -259,33 +259,44 @@ export const ShapeRenderer = memo(function ShapeRenderer({
         </Group>
       )
 
-    case 'connector':
-      return obj.connectorStyle === 'line' ? (
-        <Line
-          id={obj.id}
-          points={obj.points || []}
-          stroke={stroke || '#1f2937'}
-          strokeWidth={strokeWidth || 2}
-          opacity={opacity}
-          hitStrokeWidth={12}
-          onClick={() => onSelect(obj.id)}
-          onTap={() => onSelect(obj.id)}
-        />
-      ) : (
-        <Arrow
-          id={obj.id}
-          points={obj.points || []}
-          stroke={stroke || '#1f2937'}
-          strokeWidth={strokeWidth || 2}
-          fill={stroke || '#1f2937'}
-          pointerLength={10}
-          pointerWidth={10}
-          opacity={opacity}
-          hitStrokeWidth={12}
-          onClick={() => onSelect(obj.id)}
-          onTap={() => onSelect(obj.id)}
-        />
-      )
+    case 'connector': {
+      const style = obj.connectorStyle || 'arrow-end'
+      const pts = obj.points || []
+      const commonConnectorProps = {
+        id: obj.id,
+        stroke: stroke || '#1f2937',
+        strokeWidth: strokeWidth || 2,
+        opacity,
+        hitStrokeWidth: 12,
+        onClick: () => onSelect(obj.id),
+        onTap: () => onSelect(obj.id),
+      }
+
+      if (style === 'none') {
+        return <Line points={pts} {...commonConnectorProps} />
+      }
+
+      // For arrow styles, reverse points for start-only arrow
+      const renderPts = style === 'arrow-start' ? [pts[2], pts[3], pts[0], pts[1]] : pts
+      const pointerProps = { pointerLength: 10, pointerWidth: 10, fill: stroke || '#1f2937' }
+
+      if (style === 'arrow-both') {
+        // Render two arrows (one each direction) for bidirectional
+        return (
+          <Group>
+            <Arrow points={pts} {...commonConnectorProps} {...pointerProps} />
+            <Arrow
+              points={[pts[2], pts[3], pts[0], pts[1]]}
+              {...commonConnectorProps}
+              {...pointerProps}
+              id={undefined}
+            />
+          </Group>
+        )
+      }
+
+      return <Arrow points={renderPts} {...commonConnectorProps} {...pointerProps} />
+    }
 
     default:
       return (

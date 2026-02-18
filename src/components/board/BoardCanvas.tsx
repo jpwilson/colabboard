@@ -326,7 +326,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
           strokeWidth: 2,
           fromId: connectorSource,
           toId: id,
-          connectorStyle: 'arrow',
+          connectorStyle: 'arrow-end',
           z_index: nextZIndexRef.current,
           updated_at: now,
         }
@@ -752,17 +752,33 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
             {/* Objects */}
             {objects.map((obj) => {
-              // Pre-compute connector endpoints
+              // Pre-compute connector endpoints with edge snapping
               if (obj.type === 'connector' && obj.fromId && obj.toId) {
                 const fromObj = objects.find((o) => o.id === obj.fromId)
                 const toObj = objects.find((o) => o.id === obj.toId)
                 if (!fromObj || !toObj) return null
-                const pts = [
-                  fromObj.x + fromObj.width / 2,
-                  fromObj.y + fromObj.height / 2,
-                  toObj.x + toObj.width / 2,
-                  toObj.y + toObj.height / 2,
-                ]
+
+                const fromCx = fromObj.x + fromObj.width / 2
+                const fromCy = fromObj.y + fromObj.height / 2
+                const toCx = toObj.x + toObj.width / 2
+                const toCy = toObj.y + toObj.height / 2
+
+                // Compute edge intersection point for a rectangle
+                const edgePoint = (cx: number, cy: number, w: number, h: number, tx: number, ty: number) => {
+                  const dx = tx - cx
+                  const dy = ty - cy
+                  if (dx === 0 && dy === 0) return { x: cx, y: cy }
+                  const hw = w / 2
+                  const hh = h / 2
+                  const scaleX = dx !== 0 ? hw / Math.abs(dx) : Infinity
+                  const scaleY = dy !== 0 ? hh / Math.abs(dy) : Infinity
+                  const scale = Math.min(scaleX, scaleY)
+                  return { x: cx + dx * scale, y: cy + dy * scale }
+                }
+
+                const start = edgePoint(fromCx, fromCy, fromObj.width, fromObj.height, toCx, toCy)
+                const end = edgePoint(toCx, toCy, toObj.width, toObj.height, fromCx, fromCy)
+                const pts = [start.x, start.y, end.x, end.y]
                 return (
                   <ShapeRenderer
                     key={obj.id}

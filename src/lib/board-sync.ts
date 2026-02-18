@@ -47,7 +47,7 @@ export interface CanvasObject {
   rotation?: number
   fromId?: string
   toId?: string
-  connectorStyle?: 'line' | 'arrow'
+  connectorStyle?: 'none' | 'arrow-end' | 'arrow-start' | 'arrow-both'
   z_index: number
   updated_at: string
 }
@@ -90,7 +90,7 @@ export function boardObjectToCanvas(obj: BoardObject): CanvasObject {
   if (data.rotation !== undefined) result.rotation = data.rotation as number
   if (data.fromId !== undefined) result.fromId = data.fromId as string
   if (data.toId !== undefined) result.toId = data.toId as string
-  if (data.connectorStyle !== undefined) result.connectorStyle = data.connectorStyle as 'line' | 'arrow'
+  if (data.connectorStyle !== undefined) result.connectorStyle = data.connectorStyle as 'none' | 'arrow-end' | 'arrow-start' | 'arrow-both'
   return result
 }
 
