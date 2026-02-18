@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Stage, Layer, Rect, Line, Arrow, Transformer } from 'react-konva'
+import { Stage, Layer, Rect, Circle, Line, Arrow, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { usePresence } from '@/hooks/usePresence'
 import { useBoard } from '@/hooks/useBoard'
@@ -15,6 +15,19 @@ import type { CanvasObject, ShapeType } from '@/lib/board-sync'
 
 function generateId() {
   return crypto.randomUUID()
+}
+
+/** Compute where a line from (cx,cy) toward (tx,ty) exits a rectangle centered at (cx,cy) with size w×h */
+function edgePoint(cx: number, cy: number, w: number, h: number, tx: number, ty: number) {
+  const dx = tx - cx
+  const dy = ty - cy
+  if (dx === 0 && dy === 0) return { x: cx, y: cy }
+  const hw = w / 2
+  const hh = h / 2
+  const scaleX = dx !== 0 ? hw / Math.abs(dx) : Infinity
+  const scaleY = dy !== 0 ? hh / Math.abs(dy) : Infinity
+  const scale = Math.min(scaleX, scaleY)
+  return { x: cx + dx * scale, y: cy + dy * scale }
 }
 
 interface BoardCanvasProps {
@@ -47,6 +60,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   // Connector state
   const [connectorSource, setConnectorSource] = useState<string | null>(null)
   const [connectorPreview, setConnectorPreview] = useState<number[] | null>(null)
+  const [draggingEndpoint, setDraggingEndpoint] = useState<{ connectorId: string; end: 'from' | 'to'; x: number; y: number } | null>(null)
 
   const [stageSize, setStageSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1200,
@@ -428,6 +442,13 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     if (!stage) return
 
     if (selectedId) {
+      // Don't attach Transformer to connectors — they use endpoint handles instead
+      const selectedObj = objectsRef2.current.find((o) => o.id === selectedId)
+      if (selectedObj?.type === 'connector') {
+        transformer.nodes([])
+        transformer.getLayer()?.batchDraw()
+        return
+      }
       const node = stage.findOne(`#${selectedId}`)
       if (node) {
         transformer.nodes([node])
@@ -763,19 +784,6 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
                 const toCx = toObj.x + toObj.width / 2
                 const toCy = toObj.y + toObj.height / 2
 
-                // Compute edge intersection point for a rectangle
-                const edgePoint = (cx: number, cy: number, w: number, h: number, tx: number, ty: number) => {
-                  const dx = tx - cx
-                  const dy = ty - cy
-                  if (dx === 0 && dy === 0) return { x: cx, y: cy }
-                  const hw = w / 2
-                  const hh = h / 2
-                  const scaleX = dx !== 0 ? hw / Math.abs(dx) : Infinity
-                  const scaleY = dy !== 0 ? hh / Math.abs(dy) : Infinity
-                  const scale = Math.min(scaleX, scaleY)
-                  return { x: cx + dx * scale, y: cy + dy * scale }
-                }
-
                 const start = edgePoint(fromCx, fromCy, fromObj.width, fromObj.height, toCx, toCy)
                 const end = edgePoint(toCx, toCy, toObj.width, toObj.height, fromCx, fromCy)
                 const pts = [start.x, start.y, end.x, end.y]
@@ -829,6 +837,76 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
                 listening={false}
               />
             )}
+
+            {/* Connector endpoint handles (when a connector is selected) */}
+            {(() => {
+              if (!selectedId) return null
+              const selObj = objects.find((o) => o.id === selectedId)
+              if (!selObj || selObj.type !== 'connector' || !selObj.fromId || !selObj.toId) return null
+              const fromObj = objects.find((o) => o.id === selObj.fromId)
+              const toObj = objects.find((o) => o.id === selObj.toId)
+              if (!fromObj || !toObj) return null
+
+              const fromCx = fromObj.x + fromObj.width / 2
+              const fromCy = fromObj.y + fromObj.height / 2
+              const toCx = toObj.x + toObj.width / 2
+              const toCy = toObj.y + toObj.height / 2
+              const startPt = edgePoint(fromCx, fromCy, fromObj.width, fromObj.height, toCx, toCy)
+              const endPt = edgePoint(toCx, toCy, toObj.width, toObj.height, fromCx, fromCy)
+
+              const handleRadius = 6 / stageScale
+              const handleStroke = 2 / stageScale
+
+              const handleEndpointDragEnd = (end: 'from' | 'to', e: Konva.KonvaEventObject<DragEvent>) => {
+                const pos = { x: e.target.x(), y: e.target.y() }
+                setDraggingEndpoint(null)
+                // Find which object the endpoint was dropped near
+                const hitObj = objects.find((o) => {
+                  if (o.type === 'connector' || o.id === selObj.id) return false
+                  // Check if the same end's current target — skip
+                  if (end === 'from' && o.id === selObj.toId) return false
+                  if (end === 'to' && o.id === selObj.fromId) return false
+                  return pos.x >= o.x && pos.x <= o.x + o.width && pos.y >= o.y && pos.y <= o.y + o.height
+                })
+                if (hitObj) {
+                  // Reconnect
+                  const updates: Partial<CanvasObject> = end === 'from' ? { fromId: hitObj.id } : { toId: hitObj.id }
+                  updateObjectHelper(selObj.id, updates)
+                }
+                // Reset circle position (it will re-render at computed edge point)
+              }
+
+              return (
+                <>
+                  {/* Start endpoint (from) */}
+                  <Circle
+                    x={draggingEndpoint?.end === 'from' ? draggingEndpoint.x : startPt.x}
+                    y={draggingEndpoint?.end === 'from' ? draggingEndpoint.y : startPt.y}
+                    radius={handleRadius}
+                    fill="#3b82f6"
+                    stroke="#ffffff"
+                    strokeWidth={handleStroke}
+                    draggable
+                    onDragStart={() => setDraggingEndpoint({ connectorId: selObj.id, end: 'from', x: startPt.x, y: startPt.y })}
+                    onDragMove={(e) => setDraggingEndpoint({ connectorId: selObj.id, end: 'from', x: e.target.x(), y: e.target.y() })}
+                    onDragEnd={(e) => handleEndpointDragEnd('from', e)}
+                  />
+                  {/* End endpoint (to) */}
+                  <Circle
+                    x={draggingEndpoint?.end === 'to' ? draggingEndpoint.x : endPt.x}
+                    y={draggingEndpoint?.end === 'to' ? draggingEndpoint.y : endPt.y}
+                    radius={handleRadius}
+                    fill="#3b82f6"
+                    stroke="#ffffff"
+                    strokeWidth={handleStroke}
+                    draggable
+                    onDragStart={() => setDraggingEndpoint({ connectorId: selObj.id, end: 'to', x: endPt.x, y: endPt.y })}
+                    onDragMove={(e) => setDraggingEndpoint({ connectorId: selObj.id, end: 'to', x: e.target.x(), y: e.target.y() })}
+                    onDragEnd={(e) => handleEndpointDragEnd('to', e)}
+                  />
+                </>
+              )
+            })()}
 
             {/* Transformer */}
             <Transformer

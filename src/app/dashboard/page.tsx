@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   // Also include boards the user owns (they might not have a board_members row)
   const { data: boards } = await supabase
     .from('boards')
-    .select('id, slug, name, owner_id, updated_at, board_members(count), profiles!owner_id(display_name)')
+    .select('id, slug, name, owner_id, updated_at, board_members(count), profiles!boards_owner_profile_fkey(display_name)')
     .or(`owner_id.eq.${user.id}${memberBoardIds.length > 0 ? `,id.in.(${memberBoardIds.join(',')})` : ''}`)
     .order('updated_at', { ascending: false })
 
