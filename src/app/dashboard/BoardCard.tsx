@@ -12,11 +12,12 @@ interface BoardCardProps {
   }
   memberCount: number
   isOwner: boolean
+  ownerName?: string
   renameAction: (boardId: string, formData: FormData) => Promise<void>
   deleteAction: (boardId: string) => Promise<void>
 }
 
-export function BoardCard({ board, memberCount, isOwner, renameAction, deleteAction }: BoardCardProps) {
+export function BoardCard({ board, memberCount, isOwner, ownerName, renameAction, deleteAction }: BoardCardProps) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(board.name)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -33,7 +34,7 @@ export function BoardCard({ board, memberCount, isOwner, renameAction, deleteAct
   }
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/30 bg-white/50 p-5 shadow-lg backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl">
+    <div className="group relative overflow-hidden rounded-2xl border border-white/30 bg-white/50 p-5 pb-6 shadow-lg backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl">
       {/* Board preview strip */}
       <div className="mb-4 h-2 w-full rounded-full bg-gradient-to-r from-primary-light via-accent to-teal opacity-60" />
 
@@ -80,11 +81,14 @@ export function BoardCard({ board, memberCount, isOwner, renameAction, deleteAct
         }`}>
           {isOwner ? 'Owner' : 'Shared'}
         </span>
+        {!isOwner && ownerName && (
+          <span className="text-slate-400">by {ownerName}</span>
+        )}
       </div>
 
       {/* Action buttons — show on hover */}
       {isOwner && (
-        <div className="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute right-3 top-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             onClick={(e) => {
               e.preventDefault()

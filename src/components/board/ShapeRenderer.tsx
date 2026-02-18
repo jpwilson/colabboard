@@ -28,7 +28,8 @@ export const ShapeRenderer = memo(function ShapeRenderer({
     y: obj.y,
     width: obj.width,
     height: obj.height,
-    draggable: true,
+    rotation: obj.rotation ?? 0,
+    draggable: obj.type !== 'connector',
     onClick: () => onSelect(obj.id),
     onTap: () => onSelect(obj.id),
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) =>
@@ -256,6 +257,34 @@ export const ShapeRenderer = memo(function ShapeRenderer({
             opacity={opacity}
           />
         </Group>
+      )
+
+    case 'connector':
+      return obj.connectorStyle === 'line' ? (
+        <Line
+          id={obj.id}
+          points={obj.points || []}
+          stroke={stroke || '#1f2937'}
+          strokeWidth={strokeWidth || 2}
+          opacity={opacity}
+          hitStrokeWidth={12}
+          onClick={() => onSelect(obj.id)}
+          onTap={() => onSelect(obj.id)}
+        />
+      ) : (
+        <Arrow
+          id={obj.id}
+          points={obj.points || []}
+          stroke={stroke || '#1f2937'}
+          strokeWidth={strokeWidth || 2}
+          fill={stroke || '#1f2937'}
+          pointerLength={10}
+          pointerWidth={10}
+          opacity={opacity}
+          hitStrokeWidth={12}
+          onClick={() => onSelect(obj.id)}
+          onTap={() => onSelect(obj.id)}
+        />
       )
 
     default:

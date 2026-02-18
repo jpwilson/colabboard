@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Stage, Layer, Rect, Line, Transformer } from 'react-konva'
+import { Stage, Layer, Rect, Line, Arrow, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { usePresence } from '@/hooks/usePresence'
 import { useBoard } from '@/hooks/useBoard'
@@ -35,13 +35,18 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 })
   const [stageScale, setStageScale] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [showGrid, setShowGrid] = useState(true)
+  type GridMode = 'none' | 'dots' | 'lines'
+  const [gridMode, setGridMode] = useState<GridMode>('dots')
   const [displayName, setDisplayName] = useState(boardName || '')
 
   // Freedraw state
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentDrawPoints, setCurrentDrawPoints] = useState<number[]>([])
   const drawingPointsRef = useRef<number[]>([])
+
+  // Connector state
+  const [connectorSource, setConnectorSource] = useState<string | null>(null)
+  const [connectorPreview, setConnectorPreview] = useState<number[] | null>(null)
 
   const [stageSize, setStageSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 1200,
@@ -51,6 +56,9 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const hasInitialFit = useRef(false)
+  const clipboardRef = useRef<CanvasObject | null>(null)
+  const objectsRef2 = useRef<CanvasObject[]>([])
+  const nextZIndexRef = useRef(0)
 
   useEffect(() => {
     function handleResize() {
@@ -83,6 +91,8 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const objects = syncEnabled ? syncObjects : localObjects
   const nextZIndex = objects.length > 0 ? Math.max(...objects.map((o) => o.z_index)) + 1 : 0
   const selectedObject = objects.find((o) => o.id === selectedId) || null
+  objectsRef2.current = objects
+  nextZIndexRef.current = nextZIndex
 
   // Helper to add an object (synced or local)
   const addObjectHelper = useCallback(
@@ -156,6 +166,12 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         setSelectedId(null)
         return
       }
+      if (tool === 'connector') {
+        // Clicking empty stage cancels connector creation
+        setConnectorSource(null)
+        setConnectorPreview(null)
+        return
+      }
       if (tool === 'freedraw') return // handled by mousedown/up
 
       const pos = getCanvasPos(e)
@@ -215,6 +231,22 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         if (pos) updateCursor(pos)
       }
 
+      // Connector preview
+      if (tool === 'connector' && connectorSource) {
+        const pos = getCanvasPos(e)
+        if (pos) {
+          const sourceObj = objectsRef2.current.find((o) => o.id === connectorSource)
+          if (sourceObj) {
+            setConnectorPreview([
+              sourceObj.x + sourceObj.width / 2,
+              sourceObj.y + sourceObj.height / 2,
+              pos.x,
+              pos.y,
+            ])
+          }
+        }
+      }
+
       // Freedraw
       if (!isDrawing || tool !== 'freedraw') return
       const pos = getCanvasPos(e)
@@ -223,7 +255,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       drawingPointsRef.current = [...drawingPointsRef.current, pos.x, pos.y]
       setCurrentDrawPoints([...drawingPointsRef.current])
     },
-    [isDrawing, tool, getCanvasPos, presenceEnabled, updateCursor],
+    [isDrawing, tool, getCanvasPos, presenceEnabled, updateCursor, connectorSource],
   )
 
   const handleMouseUp = useCallback(() => {
@@ -269,9 +301,45 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   }, [isDrawing, tool, nextZIndex, addObjectHelper])
 
   const handleSelect = useCallback((id: string) => {
+    // Connector creation flow
+    if (tool === 'connector') {
+      const clickedObj = objectsRef2.current.find((o) => o.id === id)
+      if (!clickedObj || clickedObj.type === 'connector') return
+
+      if (!connectorSource) {
+        // First click: set source
+        setConnectorSource(id)
+      } else if (id !== connectorSource) {
+        // Second click: create connector
+        const sourceObj = objectsRef2.current.find((o) => o.id === connectorSource)
+        if (!sourceObj) { setConnectorSource(null); return }
+        const now = new Date().toISOString()
+        const newConnector: CanvasObject = {
+          id: generateId(),
+          type: 'connector',
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+          fill: 'transparent',
+          stroke: '#1f2937',
+          strokeWidth: 2,
+          fromId: connectorSource,
+          toId: id,
+          connectorStyle: 'arrow',
+          z_index: nextZIndexRef.current,
+          updated_at: now,
+        }
+        addObjectHelper(newConnector)
+        setConnectorSource(null)
+        setConnectorPreview(null)
+        setTool('select')
+      }
+      return
+    }
     setSelectedId(id)
     setTool('select')
-  }, [])
+  }, [tool, connectorSource, addObjectHelper])
 
   const handleDragEnd = useCallback(
     (id: string, x: number, y: number) => {
@@ -292,6 +360,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         y: node.y(),
         width: Math.max(20, node.width() * scaleX),
         height: Math.max(20, node.height() * scaleY),
+        rotation: node.rotation(),
       })
     },
     [updateObjectHelper],
@@ -372,10 +441,16 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
   const handleDeleteSelected = useCallback(() => {
     if (!selectedId) return
+    // Also delete any connectors attached to this object
+    const connectedConnectors = objectsRef2.current.filter(
+      (o) => o.type === 'connector' && (o.fromId === selectedId || o.toId === selectedId),
+    )
     if (syncEnabled) {
       deleteObject(selectedId)
+      connectedConnectors.forEach((c) => deleteObject(c.id))
     } else {
-      setLocalObjects((prev) => prev.filter((o) => o.id !== selectedId))
+      const idsToDelete = new Set([selectedId, ...connectedConnectors.map((c) => c.id)])
+      setLocalObjects((prev) => prev.filter((o) => !idsToDelete.has(o.id)))
     }
     setSelectedId(null)
   }, [selectedId, syncEnabled, deleteObject])
@@ -508,10 +583,59 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         e.preventDefault()
         handleZoomFit()
       }
+      // Copy
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+        if (selectedId) {
+          const obj = objectsRef2.current.find((o) => o.id === selectedId)
+          if (obj) clipboardRef.current = { ...obj }
+        }
+      }
+      // Paste
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+        const clip = clipboardRef.current
+        if (!clip) return
+        e.preventDefault()
+        const now = new Date().toISOString()
+        const newObj: CanvasObject = {
+          ...clip,
+          id: generateId(),
+          x: clip.x + 20,
+          y: clip.y + 20,
+          z_index: nextZIndexRef.current,
+          updated_at: now,
+        }
+        if (newObj.type === 'connector') {
+          newObj.fromId = undefined
+          newObj.toId = undefined
+        }
+        addObjectHelper(newObj)
+        setSelectedId(newObj.id)
+        clipboardRef.current = { ...newObj }
+      }
+      // Duplicate
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault()
+        if (selectedId) {
+          const obj = objectsRef2.current.find((o) => o.id === selectedId)
+          if (obj) {
+            const now = new Date().toISOString()
+            const newObj: CanvasObject = {
+              ...obj,
+              id: generateId(),
+              x: obj.x + 20,
+              y: obj.y + 20,
+              z_index: nextZIndexRef.current,
+              updated_at: now,
+            }
+            addObjectHelper(newObj)
+            setSelectedId(newObj.id)
+          }
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editingId, handleDeleteSelected, handleZoomIn, handleZoomOut, handleZoomFit])
+  }, [editingId, selectedId, handleDeleteSelected, handleZoomIn, handleZoomOut, handleZoomFit, addObjectHelper])
 
   return (
     <div className="flex h-screen w-screen flex-col">
@@ -525,7 +649,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         boardId={boardId}
         isOwner={isOwner}
         stageScale={stageScale}
-        showGrid={showGrid}
+        gridMode={gridMode}
         onToolChange={setTool}
         onShapeToolChange={setShapeTool}
         onStickyColorChange={setStickyColor}
@@ -534,7 +658,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         onZoomOut={handleZoomOut}
         onZoomFit={handleZoomFit}
         onRename={handleRename}
-        onToggleGrid={() => setShowGrid((prev) => !prev)}
+        onCycleGrid={() => setGridMode((prev) => prev === 'none' ? 'dots' : prev === 'dots' ? 'lines' : 'none')}
         presenceSlot={
           presenceEnabled ? (
             <PresenceIndicator users={others} currentUserName={userName} />
@@ -569,10 +693,9 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
           }}
         >
           <Layer onDraw={handleLayerDraw}>
-            {/* Grid dots */}
-            {showGrid &&
+            {/* Grid */}
+            {gridMode !== 'none' &&
               (() => {
-                const dots = []
                 const gridSize = 40
                 const startX =
                   Math.floor(-stagePos.x / stageScale / gridSize) * gridSize - gridSize
@@ -580,36 +703,103 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
                   Math.floor(-stagePos.y / stageScale / gridSize) * gridSize - gridSize
                 const endX = startX + stageSize.width / stageScale + gridSize * 2
                 const endY = startY + stageSize.height / stageScale + gridSize * 2
-                for (let x = startX; x < endX; x += gridSize) {
-                  for (let y = startY; y < endY; y += gridSize) {
-                    dots.push(
-                      <Rect
-                        key={`dot-${x}-${y}`}
-                        x={x - 1}
-                        y={y - 1}
-                        width={2}
-                        height={2}
-                        fill="#d1d5db"
+
+                if (gridMode === 'dots') {
+                  const dots = []
+                  for (let x = startX; x < endX; x += gridSize) {
+                    for (let y = startY; y < endY; y += gridSize) {
+                      dots.push(
+                        <Rect
+                          key={`dot-${x}-${y}`}
+                          x={x - 1}
+                          y={y - 1}
+                          width={2}
+                          height={2}
+                          fill="#d1d5db"
+                          listening={false}
+                        />,
+                      )
+                    }
+                  }
+                  return dots
+                } else {
+                  const lines = []
+                  for (let x = startX; x < endX; x += gridSize) {
+                    lines.push(
+                      <Line
+                        key={`vl-${x}`}
+                        points={[x, startY, x, endY]}
+                        stroke="#e5e7eb"
+                        strokeWidth={0.5}
                         listening={false}
                       />,
                     )
                   }
+                  for (let y = startY; y < endY; y += gridSize) {
+                    lines.push(
+                      <Line
+                        key={`hl-${y}`}
+                        points={[startX, y, endX, y]}
+                        stroke="#e5e7eb"
+                        strokeWidth={0.5}
+                        listening={false}
+                      />,
+                    )
+                  }
+                  return lines
                 }
-                return dots
               })()}
 
             {/* Objects */}
-            {objects.map((obj) => (
-              <ShapeRenderer
-                key={obj.id}
-                obj={obj}
-                isEditing={editingId === obj.id}
-                onSelect={handleSelect}
-                onDoubleClick={handleDoubleClick}
-                onDragEnd={handleDragEnd}
-                onTransformEnd={handleTransformEnd}
+            {objects.map((obj) => {
+              // Pre-compute connector endpoints
+              if (obj.type === 'connector' && obj.fromId && obj.toId) {
+                const fromObj = objects.find((o) => o.id === obj.fromId)
+                const toObj = objects.find((o) => o.id === obj.toId)
+                if (!fromObj || !toObj) return null
+                const pts = [
+                  fromObj.x + fromObj.width / 2,
+                  fromObj.y + fromObj.height / 2,
+                  toObj.x + toObj.width / 2,
+                  toObj.y + toObj.height / 2,
+                ]
+                return (
+                  <ShapeRenderer
+                    key={obj.id}
+                    obj={{ ...obj, points: pts }}
+                    isEditing={false}
+                    onSelect={handleSelect}
+                    onDoubleClick={handleDoubleClick}
+                    onDragEnd={handleDragEnd}
+                    onTransformEnd={handleTransformEnd}
+                  />
+                )
+              }
+              return (
+                <ShapeRenderer
+                  key={obj.id}
+                  obj={obj}
+                  isEditing={editingId === obj.id}
+                  onSelect={handleSelect}
+                  onDoubleClick={handleDoubleClick}
+                  onDragEnd={handleDragEnd}
+                  onTransformEnd={handleTransformEnd}
+                />
+              )
+            })}
+
+            {/* Connector preview line */}
+            {connectorPreview && (
+              <Arrow
+                points={connectorPreview}
+                stroke="#3b82f6"
+                strokeWidth={2}
+                pointerLength={10}
+                pointerWidth={10}
+                dash={[8, 4]}
+                listening={false}
               />
-            ))}
+            )}
 
             {/* In-progress freedraw preview */}
             {isDrawing && currentDrawPoints.length >= 4 && (
@@ -627,6 +817,13 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
             {/* Transformer */}
             <Transformer
               ref={transformerRef}
+              rotateAnchorOffset={20}
+              rotateAnchorCursor="grab"
+              anchorCornerRadius={2}
+              anchorStrokeColor="#3b82f6"
+              anchorFill="#ffffff"
+              borderStroke="#3b82f6"
+              borderStrokeWidth={1}
               boundBoxFunc={(_oldBox, newBox) => {
                 if (newBox.width < 20 || newBox.height < 20) return _oldBox
                 return newBox

@@ -5,7 +5,7 @@ import type { ShapeType } from '@/lib/board-sync'
 import { STICKY_COLORS } from '@/lib/shape-defaults'
 import { OrimLogo } from '@/components/ui/OrimLogo'
 
-export type Tool = 'select' | 'sticky_note' | 'shape' | 'freedraw'
+export type Tool = 'select' | 'sticky_note' | 'shape' | 'freedraw' | 'connector'
 export type ShapeTool = Exclude<ShapeType, 'sticky_note' | 'freedraw'>
 
 const SHAPE_OPTIONS: { type: ShapeTool; label: string; icon: string }[] = [
@@ -32,7 +32,7 @@ interface ToolbarProps {
   boardId?: string
   isOwner?: boolean
   stageScale?: number
-  showGrid?: boolean
+  gridMode?: 'none' | 'dots' | 'lines'
   onToolChange: (tool: Tool) => void
   onShapeToolChange: (shape: ShapeTool) => void
   onStickyColorChange: (color: string) => void
@@ -41,7 +41,7 @@ interface ToolbarProps {
   onZoomOut?: () => void
   onZoomFit?: () => void
   onRename?: (newName: string) => void
-  onToggleGrid?: () => void
+  onCycleGrid?: () => void
   presenceSlot?: React.ReactNode
 }
 
@@ -54,7 +54,7 @@ export function Toolbar({
   boardName,
   boardId: _boardId,
   isOwner,
-  showGrid = true,
+  gridMode = 'dots',
   onToolChange,
   onShapeToolChange,
   onStickyColorChange,
@@ -63,7 +63,7 @@ export function Toolbar({
   onZoomOut,
   onZoomFit,
   onRename,
-  onToggleGrid,
+  onCycleGrid,
   presenceSlot,
 }: ToolbarProps) {
   const [shapeDropdownOpen, setShapeDropdownOpen] = useState(false)
@@ -262,6 +262,17 @@ export function Toolbar({
         </svg>
       </button>
 
+      {/* Connector */}
+      <button
+        onClick={() => onToolChange('connector')}
+        className={toolBtnClass(tool === 'connector')}
+        title="Connect objects"
+      >
+        <svg className="inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+        </svg>
+      </button>
+
       {/* Delete */}
       {selectedId && (
         <>
@@ -279,18 +290,19 @@ export function Toolbar({
 
       <div className="flex-1" />
 
-      {/* Grid toggle */}
-      {onToggleGrid && (
+      {/* Grid cycle: none → dots → lines */}
+      {onCycleGrid && (
         <button
-          onClick={onToggleGrid}
-          className={`rounded px-2 py-1.5 text-sm transition ${
-            showGrid ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'
+          onClick={onCycleGrid}
+          className={`flex items-center gap-1 rounded px-2 py-1.5 text-sm transition ${
+            gridMode !== 'none' ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'
           }`}
-          title={showGrid ? 'Hide grid' : 'Show grid'}
+          title={`Grid: ${gridMode} (click to cycle)`}
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={showGrid ? 2 : 1.5}>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={gridMode !== 'none' ? 2 : 1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
           </svg>
+          <span className="text-[10px] font-medium">{gridMode === 'none' ? 'Off' : gridMode === 'dots' ? 'Dots' : 'Lines'}</span>
         </button>
       )}
 
@@ -352,6 +364,7 @@ export function Toolbar({
         {tool === 'sticky_note' && 'Click to place sticky note'}
         {tool === 'shape' && `Click to place ${activeShapeOption.label.toLowerCase()}`}
         {tool === 'freedraw' && 'Click and drag to draw'}
+        {tool === 'connector' && 'Click source, then target object'}
       </span>
     </div>
   )

@@ -26,9 +26,12 @@ export default async function DashboardPage() {
   // Also include boards the user owns (they might not have a board_members row)
   const { data: boards } = await supabase
     .from('boards')
-    .select('id, slug, name, owner_id, updated_at, board_members(count)')
+    .select('id, slug, name, owner_id, updated_at, board_members(count), profiles!owner_id(display_name)')
     .or(`owner_id.eq.${user.id}${memberBoardIds.length > 0 ? `,id.in.(${memberBoardIds.join(',')})` : ''}`)
     .order('updated_at', { ascending: false })
+
+  const ownedBoards = (boards || []).filter((b) => b.owner_id === user.id)
+  const sharedBoards = (boards || []).filter((b) => b.owner_id !== user.id)
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
@@ -71,29 +74,28 @@ export default async function DashboardPage() {
 
       {/* Main content */}
       <main className="relative mx-auto max-w-6xl px-6 pt-24 pb-12">
+        {/* Your Boards */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">Your Boards</h2>
-            <p className="mt-1 text-sm text-slate-500">Create, manage, and collaborate on whiteboards</p>
+            <p className="mt-1 text-sm text-slate-500">Boards you own</p>
           </div>
           <NewBoardButton action={createBoard} />
         </div>
 
-        {boards && boards.length > 0 ? (
+        {ownedBoards.length > 0 ? (
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {boards.map((board) => {
+            {ownedBoards.map((board) => {
               const memberCount =
                 board.board_members && Array.isArray(board.board_members)
                   ? (board.board_members[0] as { count: number })?.count ?? 0
                   : 0
-              const isOwner = board.owner_id === user.id
-
               return (
                 <BoardCard
                   key={board.id}
                   board={board}
                   memberCount={memberCount}
-                  isOwner={isOwner}
+                  isOwner={true}
                   renameAction={renameBoard}
                   deleteAction={deleteBoard}
                 />
@@ -111,6 +113,37 @@ export default async function DashboardPage() {
             <p className="mt-1 text-sm text-slate-500">Create your first board to start collaborating!</p>
             <div className="mt-6">
               <NewBoardButton action={createBoard} />
+            </div>
+          </div>
+        )}
+
+        {/* Shared with You */}
+        {sharedBoards.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-xl font-bold text-slate-800">Shared with You</h2>
+            <p className="mt-1 text-sm text-slate-500">Boards others have shared with you</p>
+            <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {sharedBoards.map((board) => {
+                const memberCount =
+                  board.board_members && Array.isArray(board.board_members)
+                    ? (board.board_members[0] as { count: number })?.count ?? 0
+                    : 0
+                const ownerProfile = board.profiles as unknown as { display_name: string | null } | { display_name: string | null }[] | null
+                const ownerName = Array.isArray(ownerProfile)
+                  ? ownerProfile[0]?.display_name || 'Unknown'
+                  : ownerProfile?.display_name || 'Unknown'
+                return (
+                  <BoardCard
+                    key={board.id}
+                    board={board}
+                    memberCount={memberCount}
+                    isOwner={false}
+                    ownerName={ownerName}
+                    renameAction={renameBoard}
+                    deleteAction={deleteBoard}
+                  />
+                )
+              })}
             </div>
           </div>
         )}

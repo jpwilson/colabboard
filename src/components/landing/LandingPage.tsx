@@ -88,6 +88,81 @@ function StepCard({ step, title, desc, delay }: { step: string; title: string; d
   )
 }
 
+function PricingCard({
+  tier,
+  price,
+  period,
+  description,
+  features,
+  cta,
+  ctaHref,
+  highlighted,
+  delay,
+}: {
+  tier: string
+  price: string
+  period: string
+  description: string
+  features: string[]
+  cta: string
+  ctaHref: string
+  highlighted?: boolean
+  delay: number
+}) {
+  const { ref, inView } = useInView()
+  return (
+    <div
+      ref={ref}
+      className={`relative flex flex-col overflow-hidden rounded-2xl border p-6 shadow-lg transition-all duration-500 hover:-translate-y-1 hover:shadow-xl ${
+        highlighted
+          ? 'border-primary/40 bg-primary/5 ring-2 ring-primary/20'
+          : 'border-white/30 bg-white/40 backdrop-blur-md'
+      }`}
+      style={{
+        opacity: inView ? 1 : 0,
+        transform: inView ? 'translateY(0)' : 'translateY(32px)',
+        transitionDelay: `${delay}ms`,
+      }}
+    >
+      {highlighted && (
+        <div className="absolute -right-8 top-5 rotate-45 bg-primary px-10 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md">
+          Popular
+        </div>
+      )}
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">{tier}</h3>
+        <div className="mt-2 flex items-baseline gap-1">
+          <span className={`text-3xl font-extrabold ${highlighted ? 'text-primary' : 'text-slate-800'}`}>
+            {price}
+          </span>
+          {period && <span className="text-sm text-slate-500">{period}</span>}
+        </div>
+        <p className="mt-2 text-sm text-slate-600">{description}</p>
+      </div>
+      <ul className="mb-6 flex-1 space-y-3">
+        {features.map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm text-slate-700">
+            <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            {f}
+          </li>
+        ))}
+      </ul>
+      <Link
+        href={ctaHref}
+        className={`block w-full rounded-xl px-4 py-3 text-center text-sm font-semibold transition-all hover:-translate-y-0.5 ${
+          highlighted
+            ? 'bg-primary text-white shadow-lg shadow-primary/25 hover:bg-primary-dark hover:shadow-xl'
+            : 'border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 hover:shadow-md'
+        }`}
+      >
+        {cta}
+      </Link>
+    </div>
+  )
+}
+
 export function LandingPage() {
   const { ref: heroRef } = useInView(0.05)
   const { ref: mobileRef, inView: mobileInView } = useInView()
@@ -314,6 +389,84 @@ export function LandingPage() {
             <StepCard step="1" title="Create a board" desc="Sign up and create your first board in one click." delay={0} />
             <StepCard step="2" title="Invite your team" desc="Share the link and your team joins instantly." delay={150} />
             <StepCard step="3" title="Collaborate live" desc="Add notes, draw shapes, and brainstorm together in real time." delay={300} />
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="relative px-6 py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-16 text-center">
+            <h2 className="mb-4 text-3xl font-bold text-slate-800 sm:text-4xl">
+              Simple, transparent pricing
+            </h2>
+            <p className="mx-auto max-w-2xl text-lg text-slate-600">
+              Start for free, upgrade as your team grows.
+            </p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <PricingCard
+              tier="Free"
+              price="$0"
+              period=""
+              description="For individuals and small experiments"
+              features={[
+                'Unlimited boards',
+                'Up to 3 members per board',
+                'Real-time cursors & sync',
+                'Sticky notes & shapes',
+              ]}
+              cta="Get started"
+              ctaHref="/login"
+              delay={0}
+            />
+            <PricingCard
+              tier="Starter"
+              price="$7"
+              period="/mo per member"
+              description="For small teams getting started"
+              features={[
+                'Everything in Free',
+                'Up to 10 members per board',
+                'Priority support',
+                'Custom board backgrounds',
+              ]}
+              cta="Start free trial"
+              ctaHref="/login"
+              delay={100}
+            />
+            <PricingCard
+              tier="Business"
+              price="$19"
+              period="/mo per member"
+              description="For teams that need more power"
+              features={[
+                'Everything in Starter',
+                'Unlimited members',
+                'Admin controls & analytics',
+                'SSO & advanced security',
+              ]}
+              cta="Start free trial"
+              ctaHref="/login"
+              highlighted
+              delay={200}
+            />
+            <PricingCard
+              tier="Enterprise"
+              price="Contact us"
+              period=""
+              description="$1 cheaper than Miro, guaranteed"
+              features={[
+                'Everything in Business',
+                'Dedicated support',
+                'Custom integrations',
+                'On-premise deployment',
+              ]}
+              cta="Talk to sales"
+              ctaHref="/login"
+              delay={300}
+            />
           </div>
         </div>
       </section>
