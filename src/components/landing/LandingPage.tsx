@@ -206,6 +206,14 @@ export function LandingPage() {
                       Bob
                     </span>
                   </div>
+                  <div className="absolute animate-[cursorJP_6s_ease-in-out_2.5s_infinite]" style={{ left: '75%', top: '60%' }}>
+                    <svg className="h-4 w-4 -rotate-12 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M5.65 5.65l3.57 12.5 2.46-4.91 4.91-2.46L5.65 5.65z" />
+                    </svg>
+                    <span className="ml-3 -mt-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-slate-800 whitespace-nowrap">
+                      JP
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -419,6 +427,14 @@ export function LandingPage() {
           40% { transform: translate(-20px, 25px); }
           60% { transform: translate(15px, 10px); }
           80% { transform: translate(-25px, -10px); }
+        }
+        @keyframes cursorJP {
+          0%, 100% { transform: translate(0, 0); }
+          16% { transform: translate(-35px, -20px); }
+          33% { transform: translate(10px, 15px); }
+          50% { transform: translate(-20px, 5px); }
+          66% { transform: translate(25px, -15px); }
+          83% { transform: translate(-5px, 20px); }
         }
       `}</style>
     </div>
