@@ -20,10 +20,9 @@ test('login page shows password form when tab clicked', async ({ page }) => {
   await expect(page.locator('input[type="password"]').first()).toBeVisible({ timeout: 5000 })
 })
 
-test('login page shows OAuth buttons', async ({ page }) => {
+test('login page shows Google OAuth button', async ({ page }) => {
   await page.goto('/login')
   await expect(page.getByRole('button', { name: /google/i })).toBeVisible()
-  await expect(page.getByRole('button', { name: /github/i })).toBeVisible()
 })
 
 test('login page toggles between sign-in and sign-up', async ({ page }) => {

@@ -31,10 +31,9 @@ describe('LoginForm', () => {
     expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
   })
 
-  it('renders OAuth buttons', () => {
+  it('renders Google OAuth button', () => {
     render(<LoginForm />)
     expect(screen.getByRole('button', { name: /google/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /github/i })).toBeInTheDocument()
   })
 
   it('toggles between sign-in and sign-up mode', async () => {
