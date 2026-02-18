@@ -85,6 +85,27 @@ describe('board-sync', () => {
       expect(result).not.toHaveProperty('fontFamily')
       expect(result).not.toHaveProperty('points')
     })
+
+    it('extracts connector properties from data', () => {
+      const obj: BoardObject = {
+        ...sampleBoardObject,
+        type: 'connector',
+        data: { fill: 'transparent', fromId: 'src-1', toId: 'dst-1', connectorStyle: 'arrow-end' },
+      }
+      const result = boardObjectToCanvas(obj)
+      expect(result.fromId).toBe('src-1')
+      expect(result.toId).toBe('dst-1')
+      expect(result.connectorStyle).toBe('arrow-end')
+    })
+
+    it('extracts rotation from data', () => {
+      const obj: BoardObject = {
+        ...sampleBoardObject,
+        data: { fill: '#aaa', rotation: 45 },
+      }
+      const result = boardObjectToCanvas(obj)
+      expect(result.rotation).toBe(45)
+    })
   })
 
   describe('canvasToData', () => {
@@ -133,6 +154,61 @@ describe('board-sync', () => {
         points: [0, 0, 10, 10],
       })
     })
+
+    it('serializes connector properties into data', () => {
+      const obj: CanvasObject = {
+        id: 'conn-1',
+        type: 'connector',
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        fill: 'transparent',
+        fromId: 'a',
+        toId: 'b',
+        connectorStyle: 'arrow-both',
+        z_index: 0,
+        updated_at: '2026-01-01T00:00:00.000Z',
+      }
+      const data = canvasToData(obj)
+      expect(data.fromId).toBe('a')
+      expect(data.toId).toBe('b')
+      expect(data.connectorStyle).toBe('arrow-both')
+    })
+
+    it('serializes non-zero rotation into data', () => {
+      const obj: CanvasObject = {
+        id: 'obj-1',
+        type: 'rectangle',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        fill: '#e2e8f0',
+        rotation: 90,
+        z_index: 0,
+        updated_at: '2026-01-01T00:00:00.000Z',
+      }
+      const data = canvasToData(obj)
+      expect(data.rotation).toBe(90)
+    })
+
+    it('omits rotation when it is 0', () => {
+      const obj: CanvasObject = {
+        id: 'obj-1',
+        type: 'rectangle',
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 100,
+        fill: '#e2e8f0',
+        rotation: 0,
+        z_index: 0,
+        updated_at: '2026-01-01T00:00:00.000Z',
+      }
+      const data = canvasToData(obj)
+      expect(data).not.toHaveProperty('rotation')
+    })
   })
 
   describe('canvasToBoardObject', () => {
@@ -180,6 +256,29 @@ describe('board-sync', () => {
       expect(data.strokeWidth).toBe(2)
       expect(data.opacity).toBe(0.7)
     })
+
+    it('round-trips connector properties through serialization', () => {
+      const canvas: CanvasObject = {
+        id: 'conn-1',
+        type: 'connector',
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        fill: 'transparent',
+        fromId: 'obj-a',
+        toId: 'obj-b',
+        connectorStyle: 'arrow-start',
+        z_index: 5,
+        updated_at: '2026-01-01T00:00:00.000Z',
+      }
+
+      const boardObj = canvasToBoardObject(canvas, 'board-1', 'user-1')
+      const data = boardObj.data as Record<string, unknown>
+      expect(data.fromId).toBe('obj-a')
+      expect(data.toId).toBe('obj-b')
+      expect(data.connectorStyle).toBe('arrow-start')
+    })
   })
 
   describe('lwwMerge', () => {
@@ -221,6 +320,22 @@ describe('board-sync', () => {
       }
 
       const changed = lwwMerge(local, older)
+
+      expect(changed).toBe(false)
+      expect(local.get('obj-1')!.x).toBe(100)
+    })
+
+    it('does not update when timestamps are equal', () => {
+      const local = new Map<string, CanvasObject>()
+      local.set('obj-1', boardObjectToCanvas(sampleBoardObject))
+
+      const sameTime: BoardObject = {
+        ...sampleBoardObject,
+        x: 999,
+        updated_at: '2026-01-01T00:00:00.000Z',
+      }
+
+      const changed = lwwMerge(local, sameTime)
 
       expect(changed).toBe(false)
       expect(local.get('obj-1')!.x).toBe(100)

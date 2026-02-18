@@ -34,7 +34,13 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run test:run
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
 
   benchmarks:
     name: Performance Benchmarks
