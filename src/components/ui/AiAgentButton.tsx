@@ -99,7 +99,7 @@ export function AiAgentPanel({
     }),
     onError: (error) => {
       console.error('AI Agent error:', error)
-      setErrorMsg(error.message || 'Something went wrong')
+      setErrorMsg('Sorry, something went wrong. Please try again.')
     },
   })
 
