@@ -537,11 +537,11 @@ const SUGGESTION_CATEGORIES = [
   {
     label: 'Edit',
     commands: [
-      { label: 'Change colors', prompt: 'Change all sticky notes to green' },
-      { label: 'Resize objects', prompt: 'Make all sticky notes larger' },
-      { label: 'Move objects', prompt: 'Move all sticky notes to the right by 200 pixels' },
+      { label: 'Change colors', prompt: 'I want to change the color of some objects on the board' },
+      { label: 'Resize objects', prompt: 'I want to resize some objects on the board' },
+      { label: 'Move objects', prompt: 'I want to move some objects on the board' },
       { label: 'Duplicate all', prompt: 'Duplicate all sticky notes and place copies next to the originals' },
-      { label: 'Update text', prompt: 'Change the text on the first sticky note to "Updated"' },
+      { label: 'Update text', prompt: 'I want to update the text on a sticky note' },
       { label: 'Add labels', prompt: 'Add a text label next to each shape on the board' },
       { label: 'Delete all', prompt: 'Delete all objects on the board' },
     ],
