@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import Image from 'next/image'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import type { UIMessage } from 'ai'
@@ -8,10 +9,24 @@ import type { CanvasObject } from '@/lib/board-sync'
 
 interface AiAgentPanelProps {
   boardId: string
+  objects: CanvasObject[]
   onAddObject: (obj: CanvasObject) => void
   onUpdateObject: (id: string, updates: Partial<CanvasObject>) => void
   onDeleteObject: (id: string) => void
   nextZIndex: number
+}
+
+interface UndoEntry {
+  type: 'create' | 'update' | 'delete' | 'batch_update'
+  createdObjects?: CanvasObject[]
+  deletedObject?: CanvasObject
+  updateEntry?: { id: string; previous: Partial<CanvasObject>; applied: Partial<CanvasObject> }
+  batchUpdateEntries?: Array<{ id: string; previous: Partial<CanvasObject>; applied: Partial<CanvasObject> }>
+}
+
+interface UndoGroup {
+  messageId: string
+  entries: UndoEntry[]
 }
 
 interface ToolActionResult {
@@ -28,6 +43,7 @@ interface ToolActionResult {
 
 export function AiAgentPanel({
   boardId,
+  objects,
   onAddObject,
   onUpdateObject,
   onDeleteObject,
@@ -35,29 +51,46 @@ export function AiAgentPanel({
 }: AiAgentPanelProps) {
   const [open, setOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [verbose, setVerbose] = useState(false)
+  const [undoStack, setUndoStack] = useState<UndoGroup[]>([])
+  const [redoStack, setRedoStack] = useState<UndoGroup[]>([])
   const scrollRef = useRef<HTMLDivElement>(null)
   const nextZRef = useRef(nextZIndex)
   const processedToolCalls = useRef(new Set<string>())
+  const pendingUndoEntries = useRef<Map<string, UndoEntry[]>>(new Map())
+  const objectsRef = useRef<CanvasObject[]>(objects)
+
+  useEffect(() => {
+    objectsRef.current = objects
+  }, [objects])
 
   useEffect(() => {
     nextZRef.current = nextZIndex
   }, [nextZIndex])
 
   const processToolResult = useCallback(
-    (result: ToolActionResult, toolCallId: string) => {
+    (result: ToolActionResult, toolCallId: string, messageId: string) => {
       if (processedToolCalls.current.has(toolCallId)) return
       processedToolCalls.current.add(toolCallId)
 
       if (!result?.action) return
 
+      // Initialize undo entries for this message
+      if (!pendingUndoEntries.current.has(messageId)) {
+        pendingUndoEntries.current.set(messageId, [])
+      }
+      const entries = pendingUndoEntries.current.get(messageId)!
+
       switch (result.action) {
-        case 'create':
+        case 'create': {
+          const createdObjects: CanvasObject[] = []
           if (result.object) {
             const obj = {
               ...result.object,
               z_index: nextZRef.current++,
             } as CanvasObject
             onAddObject(obj)
+            createdObjects.push(obj)
           }
           // createFrame also returns a titleLabel
           if (result.titleLabel) {
@@ -66,25 +99,62 @@ export function AiAgentPanel({
               z_index: nextZRef.current++,
             } as CanvasObject
             onAddObject(label)
+            createdObjects.push(label)
+          }
+          if (createdObjects.length > 0) {
+            entries.push({ type: 'create', createdObjects })
           }
           break
-        case 'update':
+        }
+        case 'update': {
           if (result.id && result.updates) {
-            onUpdateObject(result.id, result.updates as Partial<CanvasObject>)
+            const current = objectsRef.current.find((o) => o.id === result.id)
+            const previousValues: Partial<CanvasObject> = {}
+            if (current) {
+              for (const key of Object.keys(result.updates)) {
+                (previousValues as Record<string, unknown>)[key] =
+                  (current as unknown as Record<string, unknown>)[key]
+              }
+            }
+            const applied = result.updates as Partial<CanvasObject>
+            onUpdateObject(result.id, applied)
+            entries.push({
+              type: 'update',
+              updateEntry: { id: result.id, previous: previousValues, applied },
+            })
           }
           break
-        case 'delete':
+        }
+        case 'delete': {
           if (result.id) {
+            const snapshot = objectsRef.current.find((o) => o.id === result.id)
             onDeleteObject(result.id)
-          }
-          break
-        case 'batch_update':
-          if (result.batchUpdates) {
-            for (const u of result.batchUpdates) {
-              onUpdateObject(u.id, u.updates as Partial<CanvasObject>)
+            if (snapshot) {
+              entries.push({ type: 'delete', deletedObject: { ...snapshot } })
             }
           }
           break
+        }
+        case 'batch_update': {
+          if (result.batchUpdates) {
+            const batchEntries: Array<{ id: string; previous: Partial<CanvasObject>; applied: Partial<CanvasObject> }> = []
+            for (const u of result.batchUpdates) {
+              const current = objectsRef.current.find((o) => o.id === u.id)
+              const previousValues: Partial<CanvasObject> = {}
+              if (current) {
+                for (const key of Object.keys(u.updates)) {
+                  (previousValues as Record<string, unknown>)[key] =
+                    (current as unknown as Record<string, unknown>)[key]
+                }
+              }
+              const applied = u.updates as Partial<CanvasObject>
+              onUpdateObject(u.id, applied)
+              batchEntries.push({ id: u.id, previous: previousValues, applied })
+            }
+            entries.push({ type: 'batch_update', batchUpdateEntries: batchEntries })
+          }
+          break
+        }
         case 'read':
           break
       }
@@ -92,11 +162,17 @@ export function AiAgentPanel({
     [onAddObject, onUpdateObject, onDeleteObject],
   )
 
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: '/api/ai/chat',
+        body: { boardId, verbose },
+      }),
+    [boardId, verbose],
+  )
+
   const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/ai/chat',
-      body: { boardId },
-    }),
+    transport,
     onError: (error) => {
       console.error('AI Agent error:', error)
       setErrorMsg('Sorry, something went wrong. Please try again.')
@@ -105,13 +181,10 @@ export function AiAgentPanel({
 
   const isLoading = status === 'streaming' || status === 'submitted'
 
-  // Process tool results from message parts
-  // AI SDK v6 UIMessage tool parts:
-  //   type: 'tool-${toolName}' (e.g. 'tool-createFrame') or 'dynamic-tool'
-  //   toolCallId: string
-  //   state: 'output-available' (when tool has returned)
-  //   output: the tool's return value
+  // Process tool results from message parts and build undo groups
   useEffect(() => {
+    const processedMessageIds = new Set<string>()
+
     for (const msg of messages) {
       if (msg.role !== 'assistant') continue
       for (const part of msg.parts) {
@@ -128,9 +201,25 @@ export function AiAgentPanel({
           processToolResult(
             p.output as ToolActionResult,
             p.toolCallId as string,
+            msg.id,
           )
+          processedMessageIds.add(msg.id)
         }
       }
+    }
+
+    // Finalize undo groups for processed messages
+    for (const messageId of processedMessageIds) {
+      const entries = pendingUndoEntries.current.get(messageId)
+      if (entries && entries.length > 0) {
+        setUndoStack((prev) => {
+          if (prev.some((g) => g.messageId === messageId)) return prev
+          return [...prev, { messageId, entries: [...entries] }]
+        })
+        // Clear redo stack when new AI actions come in
+        setRedoStack([])
+      }
+      pendingUndoEntries.current.delete(messageId)
     }
   }, [messages, processToolResult])
 
@@ -140,6 +229,89 @@ export function AiAgentPanel({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages, isLoading])
+
+  const handleUndo = useCallback(() => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev
+      const lastGroup = prev[prev.length - 1]
+
+      // Process entries in reverse order
+      for (let i = lastGroup.entries.length - 1; i >= 0; i--) {
+        const entry = lastGroup.entries[i]
+        switch (entry.type) {
+          case 'create':
+            for (const obj of entry.createdObjects || []) {
+              onDeleteObject(obj.id)
+            }
+            break
+          case 'delete':
+            if (entry.deletedObject) {
+              onAddObject(entry.deletedObject)
+            }
+            break
+          case 'update':
+            if (entry.updateEntry) {
+              onUpdateObject(entry.updateEntry.id, entry.updateEntry.previous)
+            }
+            break
+          case 'batch_update':
+            if (entry.batchUpdateEntries) {
+              for (const u of entry.batchUpdateEntries) {
+                onUpdateObject(u.id, u.previous)
+              }
+            }
+            break
+        }
+      }
+
+      // Push undone group to redo stack
+      setRedoStack((redoPrev) => [...redoPrev, lastGroup])
+      return prev.slice(0, -1)
+    })
+  }, [onAddObject, onUpdateObject, onDeleteObject])
+
+  const handleRedo = useCallback(() => {
+    setRedoStack((prev) => {
+      if (prev.length === 0) return prev
+      const lastGroup = prev[prev.length - 1]
+
+      // Re-apply entries in forward order
+      for (const entry of lastGroup.entries) {
+        switch (entry.type) {
+          case 'create':
+            // Re-add the original objects
+            for (const obj of entry.createdObjects || []) {
+              onAddObject(obj)
+            }
+            break
+          case 'delete':
+            // Re-delete the object
+            if (entry.deletedObject) {
+              onDeleteObject(entry.deletedObject.id)
+            }
+            break
+          case 'update':
+            // Re-apply the update
+            if (entry.updateEntry) {
+              onUpdateObject(entry.updateEntry.id, entry.updateEntry.applied)
+            }
+            break
+          case 'batch_update':
+            // Re-apply all batch updates
+            if (entry.batchUpdateEntries) {
+              for (const u of entry.batchUpdateEntries) {
+                onUpdateObject(u.id, u.applied)
+              }
+            }
+            break
+        }
+      }
+
+      // Push back to undo stack
+      setUndoStack((undoPrev) => [...undoPrev, lastGroup])
+      return prev.slice(0, -1)
+    })
+  }, [onAddObject, onUpdateObject, onDeleteObject])
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -175,14 +347,57 @@ export function AiAgentPanel({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div className="flex items-center gap-2">
-              <span className="text-lg">👽</span>
+              <Image
+                src="/AIBot1.png"
+                alt="Orim AI"
+                width={24}
+                height={24}
+                className="h-6 w-6"
+                style={{
+                  animation: isLoading
+                    ? 'alienDance 0.8s ease-in-out infinite'
+                    : 'alienFloat 2s ease-in-out infinite',
+                }}
+              />
               <h3 className="text-sm font-semibold text-slate-800">Orim AI</h3>
+              <button
+                onClick={() => setVerbose((v) => !v)}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
+                  verbose
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+                title={verbose ? 'Switch to concise mode' : 'Switch to verbose mode'}
+              >
+                {verbose ? 'Verbose' : 'Concise'}
+              </button>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-            >
-              <svg
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleUndo}
+                disabled={isLoading || undoStack.length === 0}
+                className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                title={undoStack.length > 0 ? `Undo (${undoStack.length} available)` : 'Nothing to undo'}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
+                </svg>
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={isLoading || redoStack.length === 0}
+                className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                title={redoStack.length > 0 ? `Redo (${redoStack.length} available)` : 'Nothing to redo'}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              >
+                <svg
                 className="h-4 w-4"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -195,7 +410,8 @@ export function AiAgentPanel({
                   d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
-            </button>
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -270,10 +486,25 @@ export function AiAgentPanel({
       {/* Floating toggle button */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-6 right-6 z-[9999] flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl"
+        className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/25 transition-all hover:bg-primary-dark hover:shadow-xl"
         title="Orim AI Agent"
       >
-        <span className="text-xl">👽</span>
+        <Image
+          src="/AIBot1.png"
+          alt="Orim AI"
+          width={36}
+          height={36}
+          className="h-9 w-9"
+          style={{
+            animation: errorMsg
+              ? 'alienShake 0.3s ease-in-out 3'
+              : isLoading
+                ? 'alienDance 0.8s ease-in-out infinite'
+                : open
+                  ? 'alienWrite 1.5s ease-in-out infinite'
+                  : 'alienFloat 2s ease-in-out infinite',
+          }}
+        />
       </button>
     </>
   )
@@ -286,9 +517,11 @@ const SUGGESTION_CATEGORIES = [
       { label: 'SWOT Analysis', prompt: 'Create a SWOT analysis template' },
       { label: 'Kanban Board', prompt: 'Create a Kanban board with To Do, In Progress, and Done columns' },
       { label: 'Retrospective', prompt: 'Create a retrospective with Went Well, To Improve, and Actions' },
+      { label: 'Mind Map', prompt: 'Create a mind map with a central topic and 6 branching ideas' },
+      { label: 'Flowchart', prompt: 'Create a flowchart with Start, Process, Decision, and End nodes' },
+      { label: 'Timeline', prompt: 'Create a horizontal timeline with 5 milestones' },
       { label: 'Pros & Cons', prompt: 'Create a pros and cons template' },
-      { label: 'Sticky Note', prompt: 'Add a sticky note that says "New idea"' },
-      { label: 'Shape', prompt: 'Add a blue circle' },
+      { label: 'Decision Matrix', prompt: 'Create a 2x2 decision matrix with Impact vs Effort axes' },
     ],
   },
   {
@@ -296,9 +529,11 @@ const SUGGESTION_CATEGORIES = [
     commands: [
       { label: 'Change colors', prompt: 'Change all sticky notes to green' },
       { label: 'Resize objects', prompt: 'Make all sticky notes larger' },
-      { label: 'Move objects', prompt: 'Move all sticky notes to the right' },
-      { label: 'Delete all', prompt: 'Delete all objects on the board' },
+      { label: 'Move objects', prompt: 'Move all sticky notes to the right by 200 pixels' },
+      { label: 'Duplicate all', prompt: 'Duplicate all sticky notes and place copies next to the originals' },
       { label: 'Update text', prompt: 'Change the text on the first sticky note to "Updated"' },
+      { label: 'Add labels', prompt: 'Add a text label next to each shape on the board' },
+      { label: 'Delete all', prompt: 'Delete all objects on the board' },
     ],
   },
   {
@@ -306,6 +541,10 @@ const SUGGESTION_CATEGORIES = [
     commands: [
       { label: 'Grid', prompt: 'Arrange all sticky notes in a neat grid' },
       { label: 'Horizontal row', prompt: 'Line up all objects in a horizontal row' },
+      { label: 'Vertical column', prompt: 'Stack all objects in a vertical column' },
+      { label: 'Distribute evenly', prompt: 'Distribute all objects evenly with equal spacing' },
+      { label: 'Sort by color', prompt: 'Group and arrange objects by their color' },
+      { label: 'Compact', prompt: 'Move all objects closer together to reduce whitespace' },
       { label: 'Summarize', prompt: 'Describe what is currently on the board' },
     ],
   },

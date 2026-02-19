@@ -1,16 +1,16 @@
 # Orim Roadmap
 
-## MVP Checklist (24-hour gate)
+## MVP Checklist (24-hour gate) — ALL DONE
 
-- [ ] Infinite board with pan/zoom
-- [ ] Sticky notes with editable text
-- [ ] At least one shape type (rectangle, circle, or line)
-- [ ] Create, move, and edit objects
-- [ ] Real-time sync between 2+ users
-- [ ] Multiplayer cursors with name labels
-- [ ] Presence awareness (who's online)
-- [ ] User authentication
-- [ ] Deployed and publicly accessible
+- [x] Infinite board with pan/zoom
+- [x] Sticky notes with editable text
+- [x] At least one shape type (rectangle, circle, or line)
+- [x] Create, move, and edit objects
+- [x] Real-time sync between 2+ users
+- [x] Multiplayer cursors with name labels
+- [x] Presence awareness (who's online)
+- [x] User authentication
+- [x] Deployed and publicly accessible
 
 ## MVP Build Order
 
@@ -22,26 +22,25 @@
 6. Board features (infinite canvas, sticky notes, rectangles, transforms)
 7. Deploy to Vercel
 
-## Early Submission Backlog (Day 4)
+## Early Submission Backlog (Day 4) — MOSTLY DONE
 
-- [ ] Landing page (hero, features, CTA, demo preview)
-- [ ] Dashboard (board list, create board)
-- [ ] Additional shapes (circle, line, connectors, frames)
-- [ ] Text elements (standalone)
-- [ ] Multi-select (shift-click, drag-to-select)
-- [ ] Delete, duplicate, copy/paste
-- [ ] Board member management (invite, roles)
-- [ ] Guest view via invite link
-- [ ] AI agent — basic commands (create, move, change color)
-- [ ] AI agent — complex commands (SWOT, retro board, grid layout)
+- [x] Landing page (hero, features, CTA, demo preview)
+- [x] Dashboard (board list, create board)
+- [x] Additional shapes (circle, triangle, diamond, star, arrow, line, hexagon, pentagon, ellipse)
+- [x] Connectors (arrows between objects with edge snapping)
+- [x] Frames (via AI createFrame tool)
+- [x] Delete, duplicate, copy/paste
+- [x] Board sharing with invite links
+- [x] AI agent — basic commands (create, move, change color) — 11 tools
+- [x] AI agent — complex commands (SWOT, retro, kanban, flowchart, timeline, mind map, decision matrix)
+- [ ] Multi-select (shift-click, drag-to-select) — single select only
 
 ## Final Submission Backlog (Day 7)
 
 - [ ] Stripe payments integration
-- [ ] Graceful disconnect/reconnect handling
-- [ ] Performance optimization (500+ objects, 5+ users)
-- [ ] AI Development Log (docs/AI_DEV_LOG.md)
-- [ ] AI Cost Analysis (docs/COST_ANALYSIS.md)
+- [x] Performance optimization (500+ objects, 5+ users — benchmarked)
+- [x] AI Development Log (docs/AI_DEV_LOG.md)
+- [x] AI Cost Analysis (docs/COST_ANALYSIS.md)
 - [ ] Demo video (3-5 min)
 - [ ] Social post (@GauntletAI)
 

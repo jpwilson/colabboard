@@ -196,9 +196,9 @@ freedraw | connector
 
 ---
 
-## 6. Observability — LangSmith
+## 6. Observability — Langfuse
 
-### Why LangSmith?
+### Why Langfuse?
 
 The G4 spec requires an **AI Cost Analysis** deliverable with:
 - LLM API costs (actual spend during development)
@@ -206,29 +206,35 @@ The G4 spec requires an **AI Cost Analysis** deliverable with:
 - Number of API calls made
 - Production cost projections at 100 / 1,000 / 10,000 / 100,000 users
 
-LangSmith provides all of this through automatic tracing of every LLM call.
+Initially planned LangSmith, but switched to **Langfuse** for simpler OpenTelemetry-based integration.
 
-### Branch A: LangSmith via Vercel AI SDK Wrapper
+### Branch A: Langfuse via OpenTelemetry + observe()
 
 ```typescript
-import { wrapAISDK } from 'langsmith/experimental/vercel'
-export const { streamText } = wrapAISDK(ai, { client: langsmithClient })
+// src/instrumentation.ts — registers span processor at startup
+import { LangfuseSpanProcessor } from '@langfuse/otel'
+const tracerProvider = new NodeTracerProvider({ spanProcessors: [new LangfuseSpanProcessor()] })
+tracerProvider.register()
+
+// src/app/api/ai/chat/route.ts — wraps handler
+import { observe } from '@langfuse/tracing'
+export const POST = observe(handler, { name: 'ai-chat', endOnExit: false })
+
+// streamText call — enables telemetry
+streamText({ ..., experimental_telemetry: { isEnabled: true } })
 ```
 
-Traces include: model name, token counts (input/output), latency, tool calls, system prompt, user message.
+Traces include: model name, token counts (input/output), latency per step, tool calls, system prompt, cost estimation.
 
-### Branch B: LangSmith Native (Python)
+### Branch B: Langfuse Native (Python) — Planned
 
 ```python
-# Just set env vars — zero code changes
-LANGSMITH_TRACING=true
-LANGSMITH_API_KEY=lsv2_...
-LANGSMITH_PROJECT=orim-ai-agent
+from langfuse.callback import CallbackHandler
+handler = CallbackHandler()
+# Pass to LangChain agent as callback
 ```
 
-LangChain automatically traces every `ChatAnthropic` call, tool invocation, and agent step.
-
-### Metrics We'll Track
+### Metrics Tracked
 
 | Metric | Purpose |
 |--------|---------|
@@ -243,24 +249,32 @@ LangChain automatically traces every `ChatAnthropic` call, tool invocation, and 
 
 ## 7. Extra Credit Goals
 
-### Creative Commands (Stretch)
-- **Brainstorming**: "Brainstorm 6 ideas about X" → radial sticky note layout with varied colors
-- **Board summarization**: "What's on this board?" → LLM reads state and provides text analysis
-- **Idea generation**: "Generate 3 new ideas based on existing notes" → reads existing, creates new
+### Creative Commands (DONE)
+- **Brainstorming / Mind Map**: "Create a mind map with 6 branching ideas" → radial sticky note layout with varied colors
+- **Board summarization**: "Describe what's on the board" → LLM reads state and provides text analysis
+- **Flowchart**: "Create a flowchart" → vertical flow with Start, Process, Decision, End + connectors
+- **Timeline**: "Create a timeline with 5 milestones" → horizontal sticky notes with connecting line
+- **Decision Matrix**: "Create an Eisenhower matrix" → 2×2 grid with Impact vs Effort axes
 
-### Smart Layout Tool (Stretch)
-- `arrangeObjects(objectIds, layout, spacing)` — arrange in grid/horizontal/vertical/radial patterns
-- Enables: "Arrange these in a grid" / "Space these evenly" / "Stack vertically"
+### Smart Layout Tool (DONE)
+- `arrangeObjects(objectIds, layout, spacing)` — arrange in grid/horizontal/vertical patterns
+- Enables: "Arrange in a grid" / "Stack vertically" / "Line up horizontally"
 
-### Template Library (Stretch)
+### Template Library (DONE — 8 templates)
 - SWOT Analysis (4 quadrants, color-coded)
-- Retrospective (3 columns: Went Well / Didn't / Action Items)
+- Retrospective (3 columns: Went Well / To Improve / Actions)
 - Kanban Board (To Do / In Progress / Done)
-- User Journey Map (5 horizontal stages with connectors)
 - Pros and Cons (2-column layout)
-- Decision Matrix (grid with criteria and options)
 - Mind Map (central node with radial branches)
-- Timeline (horizontal sequence of events)
+- Flowchart (vertical flow with connectors)
+- Timeline (horizontal milestones)
+- Decision Matrix / Eisenhower (2×2 labeled grid)
+
+### UX Polish (DONE)
+- Verbose/Concise toggle — user chooses between brief confirmations and detailed explanations
+- Undo for AI actions — undo stack tracks creates/updates/deletes per message, reverses in order
+- Persistent suggestion pills — Create/Edit/Layout categories with 7-8 commands each
+- Animated alien mascot — state-driven CSS animations (idle, writing, thinking, error)
 
 ---
 
@@ -270,16 +284,16 @@ After both branches are built and deployed, we'll measure:
 
 | Metric | Branch A (Next.js) | Branch B (Python Docker) | Winner |
 |--------|-------------------|--------------------------|--------|
-| First-tool latency | TBD | TBD | |
-| Multi-step latency (SWOT) | TBD | TBD | |
-| Token usage per command | TBD (LangSmith) | TBD (LangSmith) | |
+| First-tool latency | ~1.5s | TBD | |
+| Multi-step latency (SWOT) | ~3-4s | TBD | |
+| Token usage per command | ~2,600 avg (Langfuse) | TBD | |
 | Deployment complexity | 1 deploy (Vercel) | 2 deploys (Vercel + Docker) | |
 | Developer experience | TS throughout | Python AI + TS frontend | |
-| Observability quality | LangSmith wrapper | LangSmith native | |
+| Observability quality | Langfuse (OpenTelemetry) | Langfuse native | |
 | Streaming smoothness | useChat() native | Custom bridge | |
 | Hosting cost | $0 (Vercel) | ~$5-7/mo (Railway) | |
 
-Results documented here. Winner merged to main.
+Branch A results populated from Langfuse. Branch B pending.
 
 ---
 
@@ -287,21 +301,21 @@ Results documented here. Winner merged to main.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| Step 0 | This document + branch creation | In Progress |
-| A1 | Foundation: API route, 2 tools, chat panel | Pending |
-| A2 | Complete all 10 tools | Pending |
-| A3 | LangSmith observability | Pending |
-| A4 | Template patterns + system prompt polish | Pending |
-| A5 | Chat UI polish | Pending |
-| A6 | Testing (unit + component + E2E) | Pending |
-| A-Deploy | Deploy Branch A on Vercel | Pending |
+| Step 0 | This document + branch creation | DONE |
+| A1 | Foundation: API route, 2 tools, chat panel | DONE |
+| A2 | Complete all 11 tools (+ arrangeObjects) | DONE |
+| A3 | Langfuse observability (switched from LangSmith) | DONE |
+| A4 | Template patterns + system prompt polish (8 templates) | DONE |
+| A5 | Chat UI polish (suggestions, verbose toggle, undo, animations) | DONE |
+| A6 | Testing (90 tests across 10 files) | DONE |
+| A-Deploy | Deploy Branch A on Vercel preview | DONE |
 | B1 | FastAPI + single tool | Pending |
 | B2 | Next.js proxy route | Pending |
 | B3 | Complete tools + Docker | Pending |
-| B4 | LangSmith dashboard | Pending |
+| B4 | Langfuse dashboard | Pending |
 | B-Deploy | Deploy Branch B on Railway | Pending |
 | Eval | Compare branches, pick winner, merge to main | Pending |
 
 ---
 
-*Last updated: 2026-02-18*
+*Last updated: 2026-02-19*

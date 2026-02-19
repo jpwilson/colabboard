@@ -957,6 +957,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         {syncEnabled && boardId && (
           <AiAgentPanel
             boardId={boardId}
+            objects={objects}
             onAddObject={addObjectHelper}
             onUpdateObject={updateObjectHelper}
             onDeleteObject={(id: string) => {

@@ -22,8 +22,9 @@ async function handler(request: Request) {
   const body = (await request.json()) as {
     messages?: UIMessage[]
     boardId?: string
+    verbose?: boolean
   }
-  const { messages, boardId } = body
+  const { messages, boardId, verbose } = body
 
   if (!boardId) {
     return NextResponse.json({ error: 'boardId is required' }, { status: 400 })
@@ -62,7 +63,7 @@ async function handler(request: Request) {
 
   const result = streamText({
     model: anthropic('claude-sonnet-4-5'),
-    system: buildSystemPrompt(boardId),
+    system: buildSystemPrompt(boardId, verbose),
     messages: await convertToModelMessages(messages),
     tools: aiTools(boardId, supabase),
     stopWhen: stepCountIs(10),
