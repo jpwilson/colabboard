@@ -61,7 +61,7 @@ async function handler(request: Request) {
   }
 
   const result = streamText({
-    model: anthropic('claude-sonnet-4-6'),
+    model: anthropic('claude-haiku-4-5-20251001'),
     system: buildSystemPrompt(boardId),
     messages: await convertToModelMessages(messages),
     tools: aiTools(boardId, supabase),

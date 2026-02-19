@@ -110,19 +110,21 @@ export function AiAgentPanel({
     for (const msg of messages) {
       if (msg.role !== 'assistant') continue
       for (const part of msg.parts) {
-        // In AI SDK v6, tool parts are typed as `tool-${name}` or `dynamic-tool`
-        // They have a toolCallId and state property
+        // AI SDK v6 UIMessage tool parts:
+        //   type: 'tool-invocation'
+        //   toolInvocationId: string
+        //   state: 'call' | 'partial-call' | 'result'
+        //   result: unknown (when state === 'result')
         const p = part as Record<string, unknown>
         if (
-          typeof p.type === 'string' &&
-          (p.type.startsWith('tool-') || p.type === 'dynamic-tool') &&
-          p.state === 'output-available' &&
-          typeof p.toolCallId === 'string' &&
-          p.output !== undefined
+          p.type === 'tool-invocation' &&
+          p.state === 'result' &&
+          typeof p.toolInvocationId === 'string' &&
+          p.result !== undefined
         ) {
           processToolResult(
-            p.output as ToolActionResult,
-            p.toolCallId as string,
+            p.result as ToolActionResult,
+            p.toolInvocationId as string,
           )
         }
       }
@@ -324,12 +326,8 @@ function MessageBubble({ message }: { message: UIMessage }) {
     if (part.type === 'text' && part.text.trim()) {
       textParts.push(part.text)
     } else {
-      // Count tool-related parts
-      const p = part as Record<string, unknown>
-      if (
-        typeof p.type === 'string' &&
-        (p.type.startsWith('tool-') || p.type === 'dynamic-tool')
-      ) {
+      // Count tool invocation parts
+      if ((part as Record<string, unknown>).type === 'tool-invocation') {
         toolCount++
       }
     }
