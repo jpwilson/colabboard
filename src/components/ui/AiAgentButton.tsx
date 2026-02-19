@@ -34,6 +34,7 @@ export function AiAgentPanel({
   nextZIndex,
 }: AiAgentPanelProps) {
   const [open, setOpen] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const nextZRef = useRef(nextZIndex)
   const processedToolCalls = useRef(new Set<string>())
@@ -98,6 +99,7 @@ export function AiAgentPanel({
     }),
     onError: (error) => {
       console.error('AI Agent error:', error)
+      setErrorMsg(error.message || 'Something went wrong')
     },
   })
 
@@ -141,6 +143,7 @@ export function AiAgentPanel({
       const input = form.elements.namedItem('message') as HTMLInputElement
       const text = input.value.trim()
       if (!text || isLoading) return
+      setErrorMsg(null)
       sendMessage({ text })
       input.value = ''
     },
@@ -150,6 +153,7 @@ export function AiAgentPanel({
   const handleSuggestion = useCallback(
     (prompt: string) => {
       if (isLoading) return
+      setErrorMsg(null)
       sendMessage({ text: prompt })
     },
     [sendMessage, isLoading],
@@ -222,6 +226,11 @@ export function AiAgentPanel({
                   <div className="flex items-center gap-1.5 text-xs text-slate-400">
                     <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                     Thinking...
+                  </div>
+                )}
+                {errorMsg && (
+                  <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
+                    {errorMsg}
                   </div>
                 )}
               </div>
