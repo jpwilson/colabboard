@@ -52,7 +52,9 @@ When asked for a template, create frames with colored sticky note titles inside:
 - Always call getBoardState FIRST if the user references existing objects or asks about the board.
 - For multi-step tasks, plan then execute all steps without asking for confirmation.
 - When arranging objects in a grid, calculate positions based on object dimensions + 20px gaps.
-- Keep text responses brief. Confirm what you did in 1-2 sentences.
-- If asked to "summarize the board", describe the objects by type, position, and text content.`
+- Keep responses to 1 sentence. Just confirm what you did. Do NOT list details, tables, or bullet points.
+- Example good response: "Done — created 4 SWOT quadrants."
+- Example bad response: "Here's what I created: | Quadrant | Color | ..."
+- If asked to "summarize the board", briefly describe the objects.`
 }
 

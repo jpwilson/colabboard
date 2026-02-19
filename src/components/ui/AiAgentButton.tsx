@@ -106,25 +106,28 @@ export function AiAgentPanel({
   const isLoading = status === 'streaming' || status === 'submitted'
 
   // Process tool results from message parts
+  // AI SDK v6 UIMessage tool parts:
+  //   type: 'tool-${toolName}' (e.g. 'tool-createFrame') or 'dynamic-tool'
+  //   toolCallId: string
+  //   state: 'output-available' (when tool has returned)
+  //   output: the tool's return value
   useEffect(() => {
     for (const msg of messages) {
       if (msg.role !== 'assistant') continue
       for (const part of msg.parts) {
-        // AI SDK v6 UIMessage tool parts:
-        //   type: 'tool-invocation'
-        //   toolInvocationId: string
-        //   state: 'call' | 'partial-call' | 'result'
-        //   result: unknown (when state === 'result')
         const p = part as Record<string, unknown>
+        const isToolPart =
+          typeof p.type === 'string' &&
+          (p.type.startsWith('tool-') || p.type === 'dynamic-tool')
         if (
-          p.type === 'tool-invocation' &&
-          p.state === 'result' &&
-          typeof p.toolInvocationId === 'string' &&
-          p.result !== undefined
+          isToolPart &&
+          p.state === 'output-available' &&
+          typeof p.toolCallId === 'string' &&
+          p.output !== undefined
         ) {
           processToolResult(
-            p.result as ToolActionResult,
-            p.toolInvocationId as string,
+            p.output as ToolActionResult,
+            p.toolCallId as string,
           )
         }
       }
@@ -326,8 +329,12 @@ function MessageBubble({ message }: { message: UIMessage }) {
     if (part.type === 'text' && part.text.trim()) {
       textParts.push(part.text)
     } else {
-      // Count tool invocation parts
-      if ((part as Record<string, unknown>).type === 'tool-invocation') {
+      // Count tool parts (type is 'tool-${name}' or 'dynamic-tool')
+      const pType = (part as Record<string, unknown>).type
+      if (
+        typeof pType === 'string' &&
+        (pType.startsWith('tool-') || pType === 'dynamic-tool')
+      ) {
         toolCount++
       }
     }
