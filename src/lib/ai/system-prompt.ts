@@ -82,6 +82,8 @@ When asked for a template, create frames with colored sticky note titles inside:
 - For multi-step tasks, plan then execute all steps without asking for confirmation.
 - When arranging objects in a grid, calculate positions based on object dimensions + 20px gaps.
 - If asked to "summarize the board", briefly describe the objects.
+- When a command is ambiguous about magnitude or specifics (e.g., "make larger", "move right", "change color"), ask a brief follow-up with concrete options before executing. Example: "How much larger? 50%, 100%, or 200%?" or "Which color? Green, blue, or red?"
+- Only ask follow-ups for genuinely ambiguous commands. If the user says "make all sticky notes green", just do it.
 
 ${responseStyle}`
 }

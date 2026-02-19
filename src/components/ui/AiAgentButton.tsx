@@ -208,13 +208,23 @@ export function AiAgentPanel({
       }
     }
 
-    // Finalize undo groups for processed messages
+    // Finalize undo groups for processed messages (merge into existing or create new)
     for (const messageId of processedMessageIds) {
       const entries = pendingUndoEntries.current.get(messageId)
       if (entries && entries.length > 0) {
+        const newEntries = [...entries]
         setUndoStack((prev) => {
-          if (prev.some((g) => g.messageId === messageId)) return prev
-          return [...prev, { messageId, entries: [...entries] }]
+          const existingIdx = prev.findIndex((g) => g.messageId === messageId)
+          if (existingIdx >= 0) {
+            // Merge new entries into existing group
+            const updated = [...prev]
+            updated[existingIdx] = {
+              messageId,
+              entries: [...updated[existingIdx].entries, ...newEntries],
+            }
+            return updated
+          }
+          return [...prev, { messageId, entries: newEntries }]
         })
         // Clear redo stack when new AI actions come in
         setRedoStack([])
@@ -355,7 +365,7 @@ export function AiAgentPanel({
                 className="h-6 w-6"
                 style={{
                   animation: isLoading
-                    ? 'alienDance 0.8s ease-in-out infinite'
+                    ? 'alienThink 1.8s ease-in-out infinite'
                     : 'alienFloat 2s ease-in-out infinite',
                 }}
               />
@@ -486,7 +496,7 @@ export function AiAgentPanel({
       {/* Floating toggle button */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/25 transition-all hover:bg-primary-dark hover:shadow-xl"
+        className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 shadow-lg shadow-amber-200/40 transition-all hover:bg-amber-100 hover:shadow-xl"
         title="Orim AI Agent"
       >
         <Image
