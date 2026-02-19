@@ -10,6 +10,7 @@ import { PresenceIndicator } from './PresenceIndicator'
 import { ShapeRenderer } from './ShapeRenderer'
 import { Toolbar, type Tool, type ShapeTool } from './Toolbar'
 import { PropertiesPanel } from './PropertiesPanel'
+import { AiAgentPanel } from '@/components/ui/AiAgentButton'
 import { SHAPE_DEFAULTS, STICKY_COLORS } from '@/lib/shape-defaults'
 import type { CanvasObject, ShapeType } from '@/lib/board-sync'
 
@@ -951,6 +952,23 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
             )}
           </Layer>
         </Stage>
+
+        {/* AI Agent Panel — only for authenticated users with board access */}
+        {syncEnabled && boardId && (
+          <AiAgentPanel
+            boardId={boardId}
+            onAddObject={addObjectHelper}
+            onUpdateObject={updateObjectHelper}
+            onDeleteObject={(id: string) => {
+              if (syncEnabled) {
+                deleteObject(id)
+              } else {
+                setLocalObjects((prev) => prev.filter((o) => o.id !== id))
+              }
+            }}
+            nextZIndex={nextZIndex}
+          />
+        )}
       </div>
     </div>
   )

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Inter, Caveat, IBM_Plex_Mono, Nunito } from 'next/font/google'
 import './globals.css'
-import { AiAgentButton } from '@/components/ui/AiAgentButton'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -37,7 +36,6 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${caveat.variable} ${ibmPlexMono.variable} ${nunito.variable} antialiased`}>
         {children}
-        <AiAgentButton />
       </body>
     </html>
   )
