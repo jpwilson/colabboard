@@ -202,26 +202,13 @@ export function AiAgentPanel({
           <div
             ref={scrollRef}
             className="flex-1 overflow-y-auto px-4 py-3"
-            style={{ maxHeight: '400px', minHeight: '200px' }}
+            style={{ maxHeight: '350px', minHeight: '150px' }}
           >
             {messages.length === 0 ? (
-              <div className="space-y-3">
-                <p className="text-xs text-slate-500">
-                  Ask me to create, arrange, or manipulate objects on your
-                  board.
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {SUGGESTED_COMMANDS.map((cmd) => (
-                    <button
-                      key={cmd.label}
-                      onClick={() => handleSuggestion(cmd.prompt)}
-                      className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600 transition hover:bg-slate-200"
-                    >
-                      {cmd.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <p className="text-xs text-slate-500">
+                Ask me to create, arrange, or manipulate objects on your
+                board. Try one of the suggestions below.
+              </p>
             ) : (
               <div className="space-y-3">
                 {messages.map((msg) => (
@@ -241,6 +228,9 @@ export function AiAgentPanel({
               </div>
             )}
           </div>
+
+          {/* Suggestions — always visible */}
+          <SuggestionPills onSelect={handleSuggestion} disabled={isLoading} />
 
           {/* Input */}
           <form onSubmit={handleSubmit} className="border-t border-slate-100 px-3 py-2">
@@ -289,24 +279,92 @@ export function AiAgentPanel({
   )
 }
 
-const SUGGESTED_COMMANDS = [
+const SUGGESTION_CATEGORIES = [
   {
-    label: 'SWOT Analysis',
-    prompt: 'Create a SWOT analysis template with four quadrants',
+    label: 'Create',
+    commands: [
+      { label: 'SWOT Analysis', prompt: 'Create a SWOT analysis template' },
+      { label: 'Kanban Board', prompt: 'Create a Kanban board with To Do, In Progress, and Done columns' },
+      { label: 'Retrospective', prompt: 'Create a retrospective with Went Well, To Improve, and Actions' },
+      { label: 'Pros & Cons', prompt: 'Create a pros and cons template' },
+      { label: 'Sticky Note', prompt: 'Add a sticky note that says "New idea"' },
+      { label: 'Shape', prompt: 'Add a blue circle' },
+    ],
   },
   {
-    label: 'Add sticky note',
-    prompt: 'Add a yellow sticky note that says "New idea"',
+    label: 'Edit',
+    commands: [
+      { label: 'Change colors', prompt: 'Change all sticky notes to green' },
+      { label: 'Resize objects', prompt: 'Make all sticky notes larger' },
+      { label: 'Move objects', prompt: 'Move all sticky notes to the right' },
+      { label: 'Delete all', prompt: 'Delete all objects on the board' },
+      { label: 'Update text', prompt: 'Change the text on the first sticky note to "Updated"' },
+    ],
   },
   {
-    label: 'Arrange in grid',
-    prompt: 'Arrange all sticky notes in a grid',
-  },
-  {
-    label: 'Summarize board',
-    prompt: 'Describe what is currently on the board',
+    label: 'Layout',
+    commands: [
+      { label: 'Grid', prompt: 'Arrange all sticky notes in a neat grid' },
+      { label: 'Horizontal row', prompt: 'Line up all objects in a horizontal row' },
+      { label: 'Summarize', prompt: 'Describe what is currently on the board' },
+    ],
   },
 ]
+
+function SuggestionPills({
+  onSelect,
+  disabled,
+}: {
+  onSelect: (prompt: string) => void
+  disabled: boolean
+}) {
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+
+  return (
+    <div className="border-t border-slate-100 px-3 py-2">
+      {/* Category tabs */}
+      <div className="mb-1.5 flex gap-1">
+        {SUGGESTION_CATEGORIES.map((cat) => (
+          <button
+            key={cat.label}
+            onClick={() =>
+              setActiveCategory(
+                activeCategory === cat.label ? null : cat.label,
+              )
+            }
+            className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
+              activeCategory === cat.label
+                ? 'bg-primary text-white'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Command pills for active category */}
+      {activeCategory && (
+        <div className="flex flex-wrap gap-1">
+          {SUGGESTION_CATEGORIES.find(
+            (c) => c.label === activeCategory,
+          )?.commands.map((cmd) => (
+            <button
+              key={cmd.label}
+              onClick={() => {
+                if (!disabled) onSelect(cmd.prompt)
+              }}
+              disabled={disabled}
+              className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600 transition hover:bg-slate-200 disabled:opacity-50"
+            >
+              {cmd.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function MessageBubble({ message }: { message: UIMessage }) {
   if (message.role === 'user') {
