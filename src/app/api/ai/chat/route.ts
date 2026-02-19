@@ -1,15 +1,15 @@
-import { convertToModelMessages, stepCountIs } from 'ai'
+import { streamText, convertToModelMessages, stepCountIs } from 'ai'
 import type { UIMessage } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse, after } from 'next/server'
 import { aiTools } from '@/lib/ai/tools'
 import { buildSystemPrompt } from '@/lib/ai/system-prompt'
-import { streamText, langsmithClient } from '@/lib/ai/tracing'
+import { observe, langfuseSpanProcessor } from '@/lib/ai/tracing'
 
 export const maxDuration = 30
 
-export async function POST(request: Request) {
+async function handler(request: Request) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -66,12 +66,18 @@ export async function POST(request: Request) {
     messages: await convertToModelMessages(messages),
     tools: aiTools(boardId, supabase),
     stopWhen: stepCountIs(10),
+    experimental_telemetry: { isEnabled: true },
   })
 
-  // Flush LangSmith traces after response completes (non-blocking)
+  // Flush Langfuse traces after response completes (non-blocking)
   after(async () => {
-    await langsmithClient.awaitPendingTraceBatches()
+    await langfuseSpanProcessor.forceFlush()
   })
 
   return result.toUIMessageStreamResponse()
 }
+
+export const POST = observe(handler, {
+  name: 'ai-chat',
+  endOnExit: false,
+})

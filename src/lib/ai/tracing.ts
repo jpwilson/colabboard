@@ -1,24 +1,17 @@
-import * as ai from 'ai'
-import { wrapAISDK } from 'langsmith/experimental/vercel'
-import { Client } from 'langsmith'
-
 /**
- * LangSmith observability wrapper for AI SDK.
+ * Langfuse observability for AI SDK.
  *
- * Traces every streamText call with:
+ * Traces every streamText call via OpenTelemetry with:
  * - Token counts (input/output)
  * - Latency per step
  * - Tool call details
  * - Cost estimation
  *
  * Requires env vars:
- *   LANGSMITH_TRACING=true
- *   LANGSMITH_API_KEY=lsv2_...
- *   LANGSMITH_PROJECT=orim-ai-agent
+ *   LANGFUSE_SECRET_KEY=sk-lf-...
+ *   LANGFUSE_PUBLIC_KEY=pk-lf-...
+ *   LANGFUSE_BASE_URL=https://us.cloud.langfuse.com
  */
 
-export const langsmithClient = new Client()
-
-export const { streamText } = wrapAISDK(ai, {
-  client: langsmithClient,
-})
+export { observe, updateActiveTrace } from '@langfuse/tracing'
+export { langfuseSpanProcessor } from '@/instrumentation'
