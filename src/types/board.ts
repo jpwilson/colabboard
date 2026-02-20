@@ -2,6 +2,12 @@ export type ObjectType = 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text
 
 export type UserRole = 'owner' | 'editor' | 'viewer'
 
+export type AgentBackend = 'nextjs' | 'docker'
+
+export interface AppConfig {
+  agent_backend: AgentBackend
+}
+
 export interface Board {
   id: string
   slug: string

@@ -4,6 +4,7 @@ import { createBoard, deleteBoard, renameBoard } from './actions'
 import { NewBoardButton } from './NewBoardButton'
 import { BoardCard } from './BoardCard'
 import { OrimLogo } from '@/components/ui/OrimLogo'
+import Link from 'next/link'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -14,6 +15,8 @@ export default async function DashboardPage() {
   if (!user) {
     redirect('/login')
   }
+
+  const isAdmin = user.user_metadata?.is_superuser === true
 
   // Fetch boards where user is owner or member
   const { data: memberRows } = await supabase
@@ -59,6 +62,14 @@ export default async function DashboardPage() {
             <OrimLogo size="md" />
           </a>
           <div className="flex items-center gap-4">
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-200"
+              >
+                Admin
+              </Link>
+            )}
             <span className="hidden text-sm text-slate-500 sm:inline">{user.email}</span>
             <form action="/auth/signout" method="post">
               <button
