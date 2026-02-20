@@ -1,11 +1,9 @@
-import { streamText, convertToModelMessages, stepCountIs } from 'ai'
 import type { UIMessage } from 'ai'
-import { anthropic } from '@ai-sdk/anthropic'
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse, after } from 'next/server'
-import { aiTools } from '@/lib/ai/tools'
-import { buildSystemPrompt } from '@/lib/ai/system-prompt'
-import { observe, langfuseSpanProcessor } from '@/lib/ai/tracing'
+import { NextResponse } from 'next/server'
+import { getAgentBackend } from '@/lib/supabase/admin'
+import { getActiveAdapter } from '@/lib/ai/agent-registry'
+import { observe } from '@/lib/ai/tracing'
 
 export const maxDuration = 30
 
@@ -61,21 +59,16 @@ async function handler(request: Request) {
     }
   }
 
-  const result = streamText({
-    model: anthropic('claude-sonnet-4-5'),
-    system: buildSystemPrompt(boardId, verbose),
-    messages: await convertToModelMessages(messages),
-    tools: aiTools(boardId, supabase),
-    stopWhen: stepCountIs(10),
-    experimental_telemetry: { isEnabled: true },
-  })
+  // Get active agent backend from config and dispatch
+  const backend = await getAgentBackend(supabase)
+  const adapter = getActiveAdapter(backend)
 
-  // Flush Langfuse traces after response completes (non-blocking)
-  after(async () => {
-    await langfuseSpanProcessor.forceFlush()
+  return adapter.chat({
+    messages,
+    boardId,
+    verbose: verbose ?? false,
+    supabase,
   })
-
-  return result.toUIMessageStreamResponse()
 }
 
 export const POST = observe(handler, {
