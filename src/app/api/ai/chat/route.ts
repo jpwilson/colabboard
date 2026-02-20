@@ -3,8 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getAgentBackend } from '@/lib/supabase/admin'
 import { getActiveAdapter } from '@/lib/ai/agent-registry'
-import { observe, updateActiveTrace } from '@/lib/ai/tracing'
+import { observe, getActiveTraceId } from '@/lib/ai/tracing'
 import { classifyCommand } from '@/lib/ai/classify-command'
+import { patchTrace } from '@/lib/ai/langfuse-scores'
 
 export const maxDuration = 30
 
@@ -74,21 +75,25 @@ async function handler(request: Request) {
     : ''
   const commandType = classifyCommand(userInput)
 
-  // Enrich Langfuse trace with user/board/command context
-  updateActiveTrace({
-    userId: user.id,
-    sessionId: `board:${boardId}`,
-    input: userInput,
-    tags: [`backend:${backend}`, `command:${commandType}`],
-    metadata: {
-      boardId,
-      backend,
-      verbose: verbose ?? false,
-      messageCount: messages.length,
-      commandType,
-      userEmail: user.email,
-    },
-  })
+  // Enrich Langfuse trace with user/board/command context via REST API
+  // (updateActiveTrace doesn't connect to OTel-generated traces)
+  const traceId = getActiveTraceId()
+  if (traceId) {
+    await patchTrace(traceId, {
+      userId: user.id,
+      sessionId: `board:${boardId}`,
+      input: userInput,
+      tags: [`backend:${backend}`, `command:${commandType}`],
+      metadata: {
+        boardId,
+        backend,
+        verbose: verbose ?? false,
+        messageCount: messages.length,
+        commandType,
+        userEmail: user.email,
+      },
+    })
+  }
 
   return adapter.chat({
     messages,

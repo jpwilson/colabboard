@@ -55,6 +55,50 @@ export async function postScores(
 }
 
 /**
+ * Patch a trace via the Langfuse ingestion API (upsert).
+ *
+ * updateActiveTrace() doesn't connect to the OTel-generated trace,
+ * so we use the REST API directly to set input, output, metadata, etc.
+ */
+export async function patchTrace(
+  traceId: string,
+  patch: {
+    input?: unknown
+    output?: unknown
+    userId?: string
+    sessionId?: string
+    tags?: string[]
+    metadata?: Record<string, unknown>
+  },
+): Promise<void> {
+  const auth = getAuthHeader()
+  if (!auth) return
+
+  await fetch(`${LANGFUSE_BASE_URL}/api/public/ingestion`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: auth,
+    },
+    body: JSON.stringify({
+      batch: [
+        {
+          id: crypto.randomUUID(),
+          type: 'trace-create',
+          timestamp: new Date().toISOString(),
+          body: {
+            id: traceId,
+            ...patch,
+          },
+        },
+      ],
+    }),
+  }).catch(() => {
+    // Silently fail
+  })
+}
+
+/**
  * Fetch traces from Langfuse for analytics.
  */
 export async function fetchTraces(options?: {

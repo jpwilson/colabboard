@@ -5,10 +5,9 @@ import { aiTools } from '@/lib/ai/tools'
 import { buildSystemPrompt } from '@/lib/ai/system-prompt'
 import {
   langfuseSpanProcessor,
-  updateActiveTrace,
   getActiveTraceId,
 } from '@/lib/ai/tracing'
-import { postScores } from '@/lib/ai/langfuse-scores'
+import { postScores, patchTrace } from '@/lib/ai/langfuse-scores'
 import type { AgentAdapter, AgentChatRequest } from '@/lib/ai/agent-adapter'
 
 export class NextJSAdapter implements AgentAdapter {
@@ -72,20 +71,22 @@ export class NextJSAdapter implements AgentAdapter {
           objectsCreated + objectsModified + objectsDeleted
         const latencyMs = Date.now() - startTime
 
-        // Update trace with output
-        updateActiveTrace({
-          output: text || `[${toolCalls.length} tool calls]`,
-          metadata: {
-            toolCalls: toolNames,
-            toolCallCount: toolCalls.length,
-            objectsCreated,
-            objectsModified,
-            objectsDeleted,
-            gotBoardState,
-            hitStepLimit,
-            latencyMs,
-          },
-        })
+        // Update trace with output via REST API
+        if (traceId) {
+          await patchTrace(traceId, {
+            output: text || `[${toolCalls.length} tool calls]`,
+            metadata: {
+              toolCalls: toolNames,
+              toolCallCount: toolCalls.length,
+              objectsCreated,
+              objectsModified,
+              objectsDeleted,
+              gotBoardState,
+              hitStepLimit,
+              latencyMs,
+            },
+          })
+        }
 
         // Post scores to Langfuse via REST API
         if (traceId) {
