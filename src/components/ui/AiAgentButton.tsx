@@ -6,6 +6,8 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import type { UIMessage } from 'ai'
 import type { CanvasObject } from '@/lib/board-sync'
+import { useDraggable } from '@/hooks/useDraggable'
+import { useIdleAnimation } from '@/hooks/useIdleAnimation'
 
 interface AiAgentPanelProps {
   boardId: string
@@ -59,6 +61,23 @@ export function AiAgentPanel({
   const processedToolCalls = useRef(new Set<string>())
   const pendingUndoEntries = useRef<Map<string, UndoEntry[]>>(new Map())
   const objectsRef = useRef<CanvasObject[]>(objects)
+
+  const { idleAnimation, resetIdleTimer } = useIdleAnimation()
+
+  const { position: chatPosition, dragHandleProps, isDragging } = useDraggable({
+    storageKey: 'orim-chat-position',
+    defaultPosition: {
+      x: typeof window !== 'undefined' ? window.innerWidth - 340 : 600,
+      y: typeof window !== 'undefined' ? window.innerHeight - 520 : 300,
+    },
+    clampToViewport: true,
+    elementSize: { width: 320, height: 480 },
+  })
+
+  // Reset idle timer on panel open/close
+  useEffect(() => {
+    resetIdleTimer()
+  }, [open, resetIdleTimer])
 
   useEffect(() => {
     objectsRef.current = objects
@@ -351,36 +370,55 @@ export function AiAgentPanel({
       {/* Expanded chat panel */}
       {open && (
         <div
-          className="fixed bottom-20 right-6 z-[9999] flex w-80 flex-col rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-lg"
-          style={{ maxHeight: 'calc(100vh - 120px)' }}
+          className={`fixed z-[9999] flex w-80 flex-col rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-lg ${isDragging ? 'select-none' : ''}`}
+          style={{
+            left: chatPosition.x,
+            top: chatPosition.y,
+            maxHeight: 'calc(100vh - 40px)',
+          }}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          {/* Header — drag handle */}
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3" {...dragHandleProps}>
             <div className="flex items-center gap-2">
-              <Image
-                src="/AIBot1.png"
-                alt="Orim AI"
-                width={24}
-                height={24}
-                className="h-6 w-6"
-                style={{
-                  animation: isLoading
-                    ? 'alienThink 1.8s ease-in-out infinite'
-                    : 'alienFloat 2s ease-in-out infinite',
-                }}
-              />
+              <div style={{ perspective: '200px' }}>
+                <Image
+                  src="/AIBot1.png"
+                  alt="Orim AI"
+                  width={24}
+                  height={24}
+                  className="h-6 w-6"
+                  style={{
+                    animation: idleAnimation
+                      ? idleAnimation
+                      : isLoading
+                        ? 'alienThink 1.8s ease-in-out infinite'
+                        : 'alienFloat 2s ease-in-out infinite',
+                  }}
+                />
+              </div>
               <h3 className="text-sm font-semibold text-slate-800">Orim AI</h3>
-              <button
-                onClick={() => setVerbose((v) => !v)}
-                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
-                  verbose
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
-                title={verbose ? 'Switch to concise mode' : 'Switch to verbose mode'}
-              >
-                {verbose ? 'Verbose' : 'Concise'}
-              </button>
+              {/* Concise / Verbose toggle pill */}
+              <div className="group relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <div
+                  className="relative flex h-5 w-[88px] cursor-pointer items-center rounded-full bg-slate-100 text-[10px] font-medium"
+                  onClick={() => setVerbose((v) => !v)}
+                >
+                  <div
+                    className={`absolute top-0.5 h-4 w-[42px] rounded-full transition-all duration-200 ${
+                      verbose ? 'left-[44px] bg-amber-400' : 'left-0.5 bg-primary'
+                    }`}
+                  />
+                  <span className={`relative z-10 flex-1 text-center transition-colors ${!verbose ? 'text-white' : 'text-slate-500'}`}>
+                    Concise
+                  </span>
+                  <span className={`relative z-10 flex-1 text-center transition-colors ${verbose ? 'text-white' : 'text-slate-500'}`}>
+                    Verbose
+                  </span>
+                </div>
+                <div className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-[9px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  {verbose ? 'Detailed explanations' : 'Short, action-focused'}
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -493,29 +531,32 @@ export function AiAgentPanel({
         </div>
       )}
 
-      {/* Floating toggle button */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 shadow-lg shadow-amber-200/40 transition-all hover:bg-amber-100 hover:shadow-xl"
-        title="Orim AI Agent"
-      >
-        <Image
-          src="/AIBot1.png"
-          alt="Orim AI"
-          width={36}
-          height={36}
-          className="h-9 w-9"
-          style={{
-            animation: errorMsg
-              ? 'alienShake 0.3s ease-in-out 3'
-              : isLoading
-                ? 'alienDance 0.8s ease-in-out infinite'
-                : open
-                  ? 'alienWrite 1.5s ease-in-out infinite'
-                  : 'alienFloat 2s ease-in-out infinite',
-          }}
-        />
-      </button>
+      {/* Floating toggle button — hidden when panel is open */}
+      {!open && (
+        <button
+          onClick={() => { setOpen(true); resetIdleTimer() }}
+          className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-[0_8px_30px_rgba(0,0,0,0.15),0_2px_8px_rgba(0,0,0,0.1)] transition-all hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(0,0,0,0.2),0_4px_12px_rgba(0,0,0,0.12)]"
+          title="Orim AI Agent"
+          style={{ perspective: '200px' }}
+        >
+          <Image
+            src="/AIBot1.png"
+            alt="Orim AI"
+            width={36}
+            height={36}
+            className="h-9 w-9"
+            style={{
+              animation: idleAnimation
+                ? idleAnimation
+                : errorMsg
+                  ? 'alienShake 0.3s ease-in-out 3'
+                  : isLoading
+                    ? 'alienDance 0.8s ease-in-out infinite'
+                    : 'alienFloat 2s ease-in-out infinite',
+            }}
+          />
+        </button>
+      )}
     </>
   )
 }
@@ -560,6 +601,24 @@ const SUGGESTION_CATEGORIES = [
   },
 ]
 
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  Create: (
+    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  ),
+  Edit: (
+    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+    </svg>
+  ),
+  Layout: (
+    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+    </svg>
+  ),
+}
+
 function SuggestionPills({
   onSelect,
   disabled,
@@ -571,8 +630,11 @@ function SuggestionPills({
 
   return (
     <div className="border-t border-slate-100 px-3 py-2">
+      <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+        Suggestions
+      </p>
       {/* Category tabs */}
-      <div className="mb-1.5 flex gap-1">
+      <div className="mb-1.5 flex gap-1.5">
         {SUGGESTION_CATEGORIES.map((cat) => (
           <button
             key={cat.label}
@@ -581,12 +643,13 @@ function SuggestionPills({
                 activeCategory === cat.label ? null : cat.label,
               )
             }
-            className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition ${
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition-all ${
               activeCategory === cat.label
-                ? 'bg-primary text-white'
+                ? 'bg-primary text-white shadow-sm'
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`}
           >
+            {CATEGORY_ICONS[cat.label]}
             {cat.label}
           </button>
         ))}
@@ -594,7 +657,7 @@ function SuggestionPills({
 
       {/* Command pills for active category */}
       {activeCategory && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {SUGGESTION_CATEGORIES.find(
             (c) => c.label === activeCategory,
           )?.commands.map((cmd) => (
@@ -604,7 +667,7 @@ function SuggestionPills({
                 if (!disabled) onSelect(cmd.prompt)
               }}
               disabled={disabled}
-              className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600 transition hover:bg-slate-200 disabled:opacity-50"
+              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium text-slate-600 transition-all duration-150 hover:border-primary/30 hover:bg-primary/5 hover:text-primary active:scale-95 disabled:opacity-50"
             >
               {cmd.label}
             </button>

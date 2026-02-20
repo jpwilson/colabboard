@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { Stage, Layer, Rect, Circle, Line, Arrow, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { usePresence } from '@/hooks/usePresence'
@@ -108,6 +108,17 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const selectedObject = objects.find((o) => o.id === selectedId) || null
   objectsRef2.current = objects
   nextZIndexRef.current = nextZIndex
+
+  // Convert selected object's canvas coords to screen coords for PropertiesPanel positioning
+  const selectedObjectScreenPos = useMemo(() => {
+    if (!selectedObject) return null
+    const centerX = selectedObject.x + (selectedObject.width || 0) / 2
+    const centerY = selectedObject.y + (selectedObject.height || 0) / 2
+    return {
+      x: centerX * stageScale + stagePos.x,
+      y: centerY * stageScale + stagePos.y + 48, // +48 for toolbar height
+    }
+  }, [selectedObject, stageScale, stagePos])
 
   // Helper to add an object (synced or local)
   const addObjectHelper = useCallback(
@@ -698,7 +709,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
       <div className="relative flex-1 overflow-hidden bg-gray-50">
         {/* Properties panel */}
-        <PropertiesPanel selectedObject={selectedObject} onUpdate={updateObjectHelper} />
+        <PropertiesPanel selectedObject={selectedObject} onUpdate={updateObjectHelper} objectScreenPosition={selectedObjectScreenPos} />
 
         <Stage
           ref={stageRef}

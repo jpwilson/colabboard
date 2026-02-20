@@ -30,7 +30,7 @@ function makeObject(overrides: Partial<CanvasObject> = {}): CanvasObject {
 describe('PropertiesPanel', () => {
   it('returns null when selectedObject is null', () => {
     const { container } = render(
-      <PropertiesPanel selectedObject={null} onUpdate={vi.fn()} />,
+      <PropertiesPanel selectedObject={null} onUpdate={vi.fn()} objectScreenPosition={null} />,
     )
     expect(container.firstChild).toBeNull()
   })
@@ -40,9 +40,10 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'sticky_note', fill: '#fef08a' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
-    expect(screen.getByText('Sticky Note')).toBeInTheDocument()
+    expect(screen.getByText('Edit your yellow sticky note')).toBeInTheDocument()
   })
 
   it('shows correct type label for connector', () => {
@@ -50,9 +51,10 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'connector', fill: 'transparent' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
-    expect(screen.getByText('Connector')).toBeInTheDocument()
+    expect(screen.getByText('Edit your connector')).toBeInTheDocument()
   })
 
   it('shows arrow style buttons for connectors only', () => {
@@ -60,6 +62,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'connector', fill: 'transparent' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.getByText('Arrow style')).toBeInTheDocument()
@@ -74,6 +77,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'rectangle' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.queryByText('Arrow style')).not.toBeInTheDocument()
@@ -86,6 +90,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ id: 'conn-1', type: 'connector', fill: 'transparent' })}
         onUpdate={onUpdate}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
 
@@ -98,6 +103,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'rectangle' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.getByTestId('color-picker-Fill')).toBeInTheDocument()
@@ -107,6 +113,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'connector', fill: 'transparent' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.queryByTestId('color-picker-Fill')).not.toBeInTheDocument()
@@ -116,6 +123,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'freedraw', fill: 'transparent' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.queryByTestId('color-picker-Fill')).not.toBeInTheDocument()
@@ -127,6 +135,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ opacity: 0.5 })}
         onUpdate={onUpdate}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
 
@@ -144,6 +153,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'rectangle' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.getByText('Stroke width')).toBeInTheDocument()
@@ -153,6 +163,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'sticky_note', fill: '#fef08a' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.queryByText('Stroke width')).not.toBeInTheDocument()
@@ -166,6 +177,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ id: 'sticky-1', type: 'sticky_note', fill: '#fef08a', width: 150, height: 150 })}
         onUpdate={onUpdate}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
 
@@ -183,6 +195,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'sticky_note', fill: '#fef08a' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.getByText('Font')).toBeInTheDocument()
@@ -191,6 +204,7 @@ describe('PropertiesPanel', () => {
       <PropertiesPanel
         selectedObject={makeObject({ type: 'rectangle' })}
         onUpdate={vi.fn()}
+        objectScreenPosition={{ x: 200, y: 200 }}
       />,
     )
     expect(screen.queryByText('Font')).not.toBeInTheDocument()

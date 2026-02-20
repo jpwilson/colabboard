@@ -2,11 +2,69 @@
 
 import { useState, useRef, useEffect } from 'react'
 import type { ShapeType } from '@/lib/board-sync'
-import { STICKY_COLORS } from '@/lib/shape-defaults'
+import { STICKY_COLORS, STICKY_COLOR_NAMES } from '@/lib/shape-defaults'
 import { OrimLogo } from '@/components/ui/OrimLogo'
 
 export type Tool = 'select' | 'sticky_note' | 'shape' | 'freedraw' | 'connector'
 export type ShapeTool = Exclude<ShapeType, 'sticky_note' | 'freedraw'>
+
+const SHAPE_ICONS: Record<string, React.ReactNode> = {
+  rectangle: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <rect x="3" y="6" width="18" height="12" rx="1" />
+    </svg>
+  ),
+  rounded_rectangle: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <rect x="3" y="6" width="18" height="12" rx="4" />
+    </svg>
+  ),
+  circle: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  ),
+  ellipse: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <ellipse cx="12" cy="12" rx="10" ry="7" />
+    </svg>
+  ),
+  triangle: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M12 3L22 20H2L12 3z" strokeLinejoin="round" />
+    </svg>
+  ),
+  diamond: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M12 2L22 12L12 22L2 12L12 2z" strokeLinejoin="round" />
+    </svg>
+  ),
+  star: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 22 12 18.27 5.82 22 7 14.14l-5-4.87 7.1-1.01L12 2z" strokeLinejoin="round" />
+    </svg>
+  ),
+  hexagon: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M12 2L21 7V17L12 22L3 17V7L12 2z" strokeLinejoin="round" />
+    </svg>
+  ),
+  pentagon: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M12 2L22 9.5L18.5 21H5.5L2 9.5L12 2z" strokeLinejoin="round" />
+    </svg>
+  ),
+  arrow: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16m0 0l-6-6m6 6l-6 6" />
+    </svg>
+  ),
+  line: (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" d="M4 20L20 4" />
+    </svg>
+  ),
+}
 
 const SHAPE_OPTIONS: { type: ShapeTool; label: string; icon: string }[] = [
   { type: 'rectangle', label: 'Rectangle', icon: '▭' },
@@ -110,7 +168,7 @@ export function Toolbar({
   }
 
   return (
-    <div className="flex items-center gap-1.5 border-b border-slate-200 bg-white px-4 py-2">
+    <div className="flex items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5">
       {/* Logo + Dashboard link */}
       <a
         href="/dashboard"
@@ -120,7 +178,7 @@ export function Toolbar({
         <span className="hidden sm:inline">Dashboard</span>
       </a>
 
-      <div className="h-5 w-px bg-slate-200" />
+      <div className="h-6 w-px bg-slate-200" />
 
       {/* Board name */}
       {boardName && (
@@ -151,7 +209,7 @@ export function Toolbar({
               {boardName}
             </span>
           )}
-          <div className="h-5 w-px bg-slate-200" />
+          <div className="h-6 w-px bg-slate-200" />
         </>
       )}
 
@@ -184,9 +242,9 @@ export function Toolbar({
           </button>
         </div>
         {stickyDropdownOpen && (
-          <div className="absolute top-full left-0 z-50 mt-1 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Color</p>
-            <div className="grid grid-cols-4 gap-1">
+          <div className="absolute top-full left-0 z-50 mt-1.5 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Color</p>
+            <div className="grid grid-cols-4 gap-2">
               {STICKY_COLORS.map((color) => (
                 <button
                   key={color}
@@ -194,10 +252,11 @@ export function Toolbar({
                     onStickyColorChange(color)
                     setStickyDropdownOpen(false)
                   }}
-                  className={`h-6 w-6 rounded-sm border transition-transform hover:scale-110 ${
-                    stickyColor === color ? 'border-slate-800 ring-1 ring-slate-800' : 'border-slate-300'
+                  className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${
+                    stickyColor === color ? 'border-slate-700 ring-2 ring-slate-700 ring-offset-1' : 'border-white shadow-sm hover:shadow-md'
                   }`}
                   style={{ backgroundColor: color }}
+                  title={STICKY_COLOR_NAMES[color] || color}
                 />
               ))}
             </div>
@@ -227,9 +286,9 @@ export function Toolbar({
           </button>
         </div>
         {shapeDropdownOpen && (
-          <div className="absolute top-full left-0 z-50 mt-1 w-52 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Shapes</p>
-            <div className="grid grid-cols-3 gap-1">
+          <div className="absolute top-full left-0 z-50 mt-1.5 w-56 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Shapes</p>
+            <div className="grid grid-cols-3 gap-1.5">
               {SHAPE_OPTIONS.map((shape) => (
                 <button
                   key={shape.type}
@@ -238,12 +297,12 @@ export function Toolbar({
                     onToolChange('shape')
                     setShapeDropdownOpen(false)
                   }}
-                  className={`flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 text-xs transition hover:bg-slate-100 ${
-                    shapeTool === shape.type ? 'bg-primary/10 text-primary' : 'text-slate-600'
+                  className={`flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-xs transition-all hover:bg-slate-100 ${
+                    shapeTool === shape.type ? 'bg-primary/10 text-primary' : 'text-slate-500'
                   }`}
                 >
-                  <span className="text-base">{shape.icon}</span>
-                  <span className="text-[10px] leading-tight">{shape.label}</span>
+                  <span className="text-slate-500">{SHAPE_ICONS[shape.type] || <span className="text-base">{shape.icon}</span>}</span>
+                  <span className="text-[10px] leading-tight font-medium">{shape.label}</span>
                 </button>
               ))}
             </div>
@@ -276,7 +335,7 @@ export function Toolbar({
       {/* Delete */}
       {selectedId && (
         <>
-          <div className="h-5 w-px bg-slate-200" />
+          <div className="h-6 w-px bg-slate-200" />
           <button
             onClick={onDelete}
             className="rounded px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
@@ -335,7 +394,7 @@ export function Toolbar({
         </div>
       )}
 
-      <div className="h-5 w-px bg-slate-200" />
+      <div className="h-6 w-px bg-slate-200" />
 
       {presenceSlot}
 

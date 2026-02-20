@@ -27,6 +27,17 @@ export const SHAPE_DEFAULTS: Record<ShapeType, ShapeDefault> = {
 
 export const STICKY_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fde68a', '#c4b5fd', '#fed7aa', '#fecaca']
 
+export const STICKY_COLOR_NAMES: Record<string, string> = {
+  '#fef08a': 'Yellow',
+  '#bbf7d0': 'Green',
+  '#bfdbfe': 'Blue',
+  '#fbcfe8': 'Pink',
+  '#fde68a': 'Amber',
+  '#c4b5fd': 'Purple',
+  '#fed7aa': 'Orange',
+  '#fecaca': 'Red',
+}
+
 export const STICKY_SIZES = [
   { label: 'S', width: 100, height: 100 },
   { label: 'M', width: 150, height: 150 },
