@@ -18,7 +18,9 @@
     "test:bench": "vitest bench",
     "test:bench:run": "vitest bench --run",
     "typecheck": "tsc --noEmit",
-    "validate": "npm run typecheck && npm run lint && npm run test:run"
+    "validate": "npm run typecheck && npm run lint && npm run test:run",
+    "eval": "npx tsx src/lib/ai/evals/run-evals.ts",
+    "eval:judge": "npx tsx src/lib/ai/evals/run-evals.ts --judge"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.45",

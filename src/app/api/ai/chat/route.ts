@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getAgentBackend } from '@/lib/supabase/admin'
 import { getActiveAdapter } from '@/lib/ai/agent-registry'
-import { observe } from '@/lib/ai/tracing'
+import { observe, updateActiveTrace } from '@/lib/ai/tracing'
+import { classifyCommand } from '@/lib/ai/classify-command'
 
 export const maxDuration = 30
 
@@ -62,6 +63,32 @@ async function handler(request: Request) {
   // Get active agent backend from config and dispatch
   const backend = await getAgentBackend(supabase)
   const adapter = getActiveAdapter(backend)
+
+  // Extract user's last message for trace metadata
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user')
+  const userInput = lastUserMsg
+    ? lastUserMsg.parts
+        ?.filter((p) => p.type === 'text')
+        .map((p) => (p as { type: 'text'; text: string }).text)
+        .join(' ') || ''
+    : ''
+  const commandType = classifyCommand(userInput)
+
+  // Enrich Langfuse trace with user/board/command context
+  updateActiveTrace({
+    userId: user.id,
+    sessionId: `board:${boardId}`,
+    input: userInput,
+    tags: [`backend:${backend}`, `command:${commandType}`],
+    metadata: {
+      boardId,
+      backend,
+      verbose: verbose ?? false,
+      messageCount: messages.length,
+      commandType,
+      userEmail: user.email,
+    },
+  })
 
   return adapter.chat({
     messages,
