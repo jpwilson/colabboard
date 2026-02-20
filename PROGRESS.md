@@ -96,25 +96,59 @@ Stack: Next.js 16 + Supabase + react-konva + Tailwind v4.
   - [x] Overlapping yellow circles logo (matching brand)
 - [x] E2E tests updated for new routing
 
+### Phase 9: Enhanced Drawing Tools (direct commits to main)
+- [x] Shape tool dropdown: circle, triangle, diamond, star, arrow, line, hexagon, rounded rectangle, ellipse, pentagon
+- [x] Shape properties: fill color, stroke color, stroke width
+- [x] Sticky note color picker (8 colors)
+- [x] Free draw tool (freehand drawing with pen/pencil)
+- [x] Properties panel for editing selected object properties
+- [x] Grid modes: none, dots, lines
+- [x] Copy/paste/duplicate (Ctrl+C/V/D)
+
+### Phase 10: Connectors & Board Features (direct commits to main)
+- [x] Connector tool — create arrows/lines between objects
+- [x] Connector edge snapping (exits object boundary toward target)
+- [x] Connector endpoint drag — reconnect to different objects
+- [x] Arrow direction options (none, forward, back, both)
+- [x] Type-specific properties panel (connector styles)
+- [x] Board rename functionality
+- [x] Board sharing with invite links
+- [x] Shared boards visible on dashboard
+- [x] Magic link auth (email token hash confirmation)
+- [x] Adaptive zoom curve (accelerates at extreme levels)
+
+### Phase 11: AI Board Agent — Branch A (feat/agent-nextjs)
+- [x] API route: `POST /api/ai/chat` with auth + board access verification
+- [x] 11 AI tools: createStickyNote, createShape, createFrame, createConnector, moveObject, resizeObject, updateText, changeColor, deleteObject, arrangeObjects, getBoardState
+- [x] Chat panel UI with floating 👽 button
+- [x] Vercel AI SDK v6 integration (useChat + streamText)
+- [x] Claude Sonnet 4.5 model binding via @ai-sdk/anthropic
+- [x] System prompt with 8 template patterns (SWOT, Kanban, Retro, Pros/Cons, Mind Map, Flowchart, Timeline, Decision Matrix)
+- [x] Langfuse observability (OpenTelemetry span processor + observe wrapper)
+- [x] Persistent suggestion pills (Create/Edit/Layout categories, 22 commands total)
+- [x] Verbose/Concise toggle — user controls response detail level
+- [x] Undo for AI actions — per-message undo stack with snapshot-based reversal
+- [x] Animated alien mascot (CSS keyframe states: idle, writing, thinking, error)
+- [x] 90 unit tests across 10 test files
+- [x] Deployed on Vercel preview
+
 ---
 
 ## Remaining Plan
 
-### Next Up: Enhanced Drawing Tools
-- [ ] Shape tool dropdown: circle, triangle, diamond, star, arrow, line, hexagon, rounded rectangle
-- [ ] Shape properties: fill color, fill opacity/transparency, border color, border thickness
-- [ ] Sticky note color picker
-- [ ] Font selection (3-4 open source fonts) for sticky notes and text in shapes
-- [ ] Free draw tool (freehand drawing with pen/pencil)
-- [ ] Properties panel / toolbar for editing selected object properties
+### Branch B: AI Agent — Python Docker (feat/agent-docker-python)
+- [ ] FastAPI + LangChain + ChatAnthropic
+- [ ] Docker containerization
+- [ ] Next.js proxy route to Python service
+- [ ] Langfuse native integration
+- [ ] Deploy on Railway/Fly.io
+- [ ] Compare with Branch A metrics
 
-### Future Phases (from original plan)
-- [ ] Vercel production deployment with env vars
-- [ ] CI secrets for E2E with proper auth
-- [ ] Board invitation system (share links)
-- [ ] AI board manipulation (Claude/OpenAI function calling)
-- [ ] Stripe payments integration
-- [ ] Mobile apps (iOS/Android)
+### Final Submission
+- [ ] Demo video (3-5 min)
+- [ ] Social post (@GauntletAI)
+- [ ] Production deployment (vercel --prod)
+- [ ] Custom alien avatar (user designing PNGs)
 
 ---
 
@@ -137,3 +171,10 @@ Stack: Next.js 16 + Supabase + react-konva + Tailwind v4.
 | 3 | feat: add performance benchmarks framework | `feat/perf-benchmarks` |
 | 2 | feat: auth system with login, dashboard, and board routes | `feat/auth` |
 | 1 | chore: fix tests for canvas homepage + deploy | `chore/fix-tests-and-deploy` |
+
+## Active Feature Branches
+
+| Branch | Purpose | Status |
+|--------|---------|--------|
+| `feat/agent-nextjs` | Branch A: AI agent via Vercel AI SDK | Active, deployed to preview |
+| `feat/agent-docker-python` | Branch B: AI agent via Python/Docker | Not started |

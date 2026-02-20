@@ -122,3 +122,15 @@ test: {
 **Fix:** Pin `jsdom` to v24 in `package.json`.
 
 **Prevention:** Check Node version compatibility before upgrading jsdom.
+
+---
+
+### 2026-02-18 | `@ai-sdk/anthropic` model IDs must match exact API catalogue
+
+**Error:** `Error: model: claude-sonnet-4-5-20250514` (and same for `claude-3-5-sonnet-20241022`, `claude-sonnet-4-6-20250514`).
+
+**Root Cause:** The `@ai-sdk/anthropic` provider type accepts `(string & {})` as a fallback, so TypeScript compiles any model string. But the Anthropic API only accepts model IDs in its catalogue. Many model IDs that "look right" don't exist.
+
+**Fix:** Check `node_modules/@ai-sdk/anthropic/dist/index.d.ts` for the valid model type union. Valid IDs include: `claude-sonnet-4-5`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`, `claude-sonnet-4-5-20250929`, `claude-opus-4-6`.
+
+**Prevention:** Always verify model IDs against the SDK type definitions before deploying. Don't guess model IDs from memory.

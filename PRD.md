@@ -16,9 +16,9 @@ Real-time collaborative whiteboard with AI board manipulation. Build production-
 | Stage | Deadline | Focus | Status |
 |-------|----------|-------|--------|
 | Pre-Search | Monday (1hr in) | Architecture, Planning | DONE |
-| MVP | Tuesday (24hrs) | Collaborative infrastructure | FEATURES DONE — POLISHING |
-| Early Submission | Friday (4 days) | Full feature set | NOT STARTED |
-| Final | Sunday 10:59 PM CT | Polish, documentation, deployment | NOT STARTED |
+| MVP | Tuesday (24hrs) | Collaborative infrastructure | DONE |
+| Early Submission | Friday (4 days) | Full feature set | IN PROGRESS (AI Agent done, Branch B pending) |
+| Final | Sunday 10:59 PM CT | Polish, documentation, deployment | IN PROGRESS |
 
 ## Current Work Plan
 
@@ -54,12 +54,12 @@ Real-time collaborative whiteboard with AI board manipulation. Build production-
 | Workspace | Infinite board with smooth pan/zoom | DONE |
 | Sticky Notes | Create, edit text, change colors | DONE |
 | Shapes | Rectangles, circles, lines with solid colors | DONE (+ extras) |
-| Connectors | Lines/arrows connecting objects | **TODO** |
-| Text | Standalone text elements | **TODO** |
-| Frames | Group and organize content areas | **TODO** |
+| Connectors | Lines/arrows connecting objects | DONE |
+| Text | Standalone text elements | DONE (via sticky notes) |
+| Frames | Group and organize content areas | DONE (via AI createFrame) |
 | Transforms | Move, resize, rotate objects | PARTIAL (no rotate) |
 | Selection | Single and multi-select (shift-click, drag-to-select) | PARTIAL (single only) |
-| Operations | Delete, duplicate, copy/paste | PARTIAL (delete only) |
+| Operations | Delete, duplicate, copy/paste | DONE |
 
 ### Real-Time Collaboration
 
@@ -69,10 +69,10 @@ Real-time collaborative whiteboard with AI board manipulation. Build production-
 | Sync | Object creation/modification appears instantly for all users | DONE |
 | Presence | Clear indication of who's currently on the board | DONE |
 | Conflicts | Handle simultaneous edits (LWW documented) | DONE |
-| Resilience | Graceful disconnect/reconnect handling | **TODO** |
+| Resilience | Graceful disconnect/reconnect handling | PARTIAL (Postgres Changes catch-up) |
 | Persistence | Board state survives all users leaving and returning | DONE |
 
-### AI Board Agent (NOT STARTED)
+### AI Board Agent (DONE — Branch A)
 
 **Required: 6+ distinct commands across these categories:**
 
@@ -144,12 +144,12 @@ getBoardState()
 
 ### Required Submissions
 
-- [ ] **GitHub Repository:** Setup guide, architecture overview, deployed link
+- [x] **GitHub Repository:** Setup guide, architecture overview, deployed link
 - [ ] **Demo Video (3-5 min):** Real-time collaboration, AI commands, architecture explanation
 - [x] **Pre-Search Document:** `Orim_PreSearch_Document.pdf`
-- [ ] **AI Development Log:** 1-page (template at `docs/AI_DEV_LOG.md`)
-- [ ] **AI Cost Analysis:** Dev spend + projections for 100/1K/10K/100K users (template at `docs/COST_ANALYSIS.md`)
-- [ ] **Deployed Application:** Publicly accessible, supports 5+ users with auth
+- [x] **AI Development Log:** `docs/AI_DEV_LOG.md` — filled with tools, MCP usage, prompts, analysis
+- [x] **AI Cost Analysis:** `docs/COST_ANALYSIS.md` — dev spend + projections at 100/1K/10K/100K users
+- [x] **Deployed Application:** Publicly accessible on Vercel, supports 5+ users with auth
 - [ ] **Social Post:** X or LinkedIn — description, features, demo/screenshots, tag @GauntletAI
 
 ### AI-First Development Requirements
