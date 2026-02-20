@@ -449,7 +449,8 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     [objects, stageScale, updateObjectHelper],
   )
 
-  const handleLayerDraw = useCallback(() => {
+  // Attach/detach Transformer to the selected node
+  const syncTransformer = useCallback(() => {
     const transformer = transformerRef.current
     if (!transformer) return
     const stage = stageRef.current
@@ -473,6 +474,17 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     transformer.nodes([])
     transformer.getLayer()?.batchDraw()
   }, [selectedId])
+
+  // Re-sync Transformer on every selectedId change via effect
+  // (requestAnimationFrame ensures Konva nodes are rendered before lookup)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      syncTransformer()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [syncTransformer])
+
+  const handleLayerDraw = syncTransformer
 
   const handleDeleteSelected = useCallback(() => {
     if (!selectedId) return
