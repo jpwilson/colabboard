@@ -13,5 +13,5 @@
  *   LANGFUSE_BASE_URL=https://us.cloud.langfuse.com
  */
 
-export { observe, updateActiveTrace } from '@langfuse/tracing'
+export { observe, updateActiveTrace, getActiveTraceId } from '@langfuse/tracing'
 export { langfuseSpanProcessor } from '@/instrumentation'
