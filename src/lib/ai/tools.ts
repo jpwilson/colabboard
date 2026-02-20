@@ -191,6 +191,65 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
     }),
 
+    createFreedraw: tool({
+      description:
+        'Create a freehand drawing on the board. Provide a flat array of [x1, y1, x2, y2, ...] coordinates in absolute board space. The points will be normalized to the bounding box automatically. Use this to draw artistic shapes, sketches, underlines, circles, arrows, wavy lines, decorative elements, or any freeform path. Generate smooth curves by using many closely-spaced points (e.g., 20-50+ points for a curve). For a circle, use sin/cos to generate points around the circumference.',
+      inputSchema: z.object({
+        points: z
+          .array(z.number())
+          .describe(
+            'Flat array of alternating x,y coordinates: [x1, y1, x2, y2, ...]. Minimum 4 values (2 points). Generate many points (20-100) for smooth curves.',
+          ),
+        stroke: z
+          .string()
+          .optional()
+          .describe('Stroke color hex (default: #1f2937, dark gray)'),
+        strokeWidth: z
+          .number()
+          .optional()
+          .describe('Stroke width in pixels (default: 3)'),
+      }),
+      execute: async ({ points, stroke, strokeWidth }) => {
+        if (points.length < 4) {
+          return {
+            action: 'create' as const,
+            error: 'Need at least 2 points (4 values) for a freehand drawing',
+          }
+        }
+
+        // Calculate bounding box
+        const xs = points.filter((_, i) => i % 2 === 0)
+        const ys = points.filter((_, i) => i % 2 === 1)
+        const minX = Math.min(...xs)
+        const minY = Math.min(...ys)
+        const maxX = Math.max(...xs)
+        const maxY = Math.max(...ys)
+
+        // Normalize points relative to top-left of bounding box
+        const normalizedPoints = points.map((val, i) =>
+          i % 2 === 0 ? val - minX : val - minY,
+        )
+
+        return {
+          action: 'create' as const,
+          object: {
+            id: crypto.randomUUID(),
+            type: 'freedraw' as const,
+            x: minX,
+            y: minY,
+            width: Math.max(maxX - minX, 1),
+            height: Math.max(maxY - minY, 1),
+            fill: 'transparent',
+            stroke: stroke ?? '#1f2937',
+            strokeWidth: strokeWidth ?? 3,
+            points: normalizedPoints,
+            z_index: 0,
+            updated_at: new Date().toISOString(),
+          },
+        }
+      },
+    }),
+
     // ── Manipulation Tools ──────────────────────────────────────────
 
     moveObject: tool({

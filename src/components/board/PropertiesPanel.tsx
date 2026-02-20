@@ -61,13 +61,14 @@ export function PropertiesPanel({ selectedObject, onUpdate, objectScreenPosition
     if (prevSelectedIdRef.current === selectedObject.id) return
     prevSelectedIdRef.current = selectedObject.id
 
-    // Try to place to the right of the object
-    let x = objectScreenPosition.x + 40
+    // Try to place to the right of the object with comfortable gap
+    const GAP = 100
+    let x = objectScreenPosition.x + GAP
     let y = objectScreenPosition.y - PANEL_HEIGHT / 2
 
     // If too far right, place to the left
     if (x + PANEL_WIDTH > window.innerWidth - 10) {
-      x = objectScreenPosition.x - PANEL_WIDTH - 40
+      x = objectScreenPosition.x - PANEL_WIDTH - GAP
     }
 
     // Clamp to viewport

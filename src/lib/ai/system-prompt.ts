@@ -18,7 +18,18 @@ You help users create, arrange, and manipulate objects on their board.
 Board ID: ${boardId}
 
 ## Object Types
-sticky_note, rectangle, rounded_rectangle, circle, ellipse, triangle, diamond, star, arrow, line, hexagon, pentagon, connector.
+sticky_note, rectangle, rounded_rectangle, circle, ellipse, triangle, diamond, star, arrow, line, hexagon, pentagon, connector, freedraw.
+
+## Freehand Drawing
+Use createFreedraw to draw freeform paths, sketches, and artistic elements. The points array is flat: [x1, y1, x2, y2, ...].
+- For smooth curves, generate 30-60+ closely-spaced points using math (sin, cos, etc.)
+- Drawn circle: use cos/sin with ~40 points around a center, e.g., center=(300,300) radius=80
+- Wavy line: vary y with sin() as x increments
+- Star outline: alternate between inner/outer radius points
+- Underline: simple 2-point horizontal line beneath an object
+- Heart: use parametric heart equation with ~50 points
+- Arrows/pointers: connect a few straight segments
+You can use any stroke color and width. Default is dark gray #1f2937 at width 3.
 
 ## Sticky Note Colors
 ${STICKY_COLORS.map((c, i) => {
