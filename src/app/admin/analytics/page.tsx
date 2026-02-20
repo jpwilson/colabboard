@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getAgentBackend } from '@/lib/supabase/admin'
+import { getAgentBackend, getAgentModel } from '@/lib/supabase/admin'
 import { fetchTraces, fetchScores } from '@/lib/ai/langfuse-scores'
 
 function getTimeRanges() {
@@ -26,6 +26,41 @@ interface LangfuseScore {
   value: number
 }
 
+interface GroupStats {
+  count: number
+  avgLatencyMs: number
+  totalCost: number
+  errorRate: number
+}
+
+function computeGroupStats(
+  groupTraces: LangfuseTrace[],
+  groupScores: LangfuseScore[],
+): GroupStats {
+  const count = groupTraces.length
+  const withLatency = groupTraces.filter(
+    (t) => typeof t.latency === 'number' && t.latency > 0,
+  )
+  const avgLatencyMs =
+    withLatency.length > 0
+      ? Math.round(
+          withLatency.reduce((sum, t) => sum + (t.latency ?? 0), 0) /
+            withLatency.length,
+        )
+      : 0
+  const totalCost = groupTraces.reduce(
+    (sum, t) => sum + (t.totalCost ?? 0),
+    0,
+  )
+  const errorScores = groupScores.filter((s) => s.name === 'error')
+  const errorRate =
+    errorScores.length > 0
+      ? errorScores.filter((s) => s.value > 0).length / errorScores.length
+      : 0
+
+  return { count, avgLatencyMs, totalCost, errorRate }
+}
+
 export default async function AnalyticsPage() {
   const supabase = await createClient()
   const { oneDayAgo, oneWeekAgo } = getTimeRanges()
@@ -38,6 +73,7 @@ export default async function AnalyticsPage() {
     totalBoardsResult,
     activeBoardsResult,
     backend,
+    currentModel,
     langfuseTraces,
     langfuseScoresData,
   ] = await Promise.all([
@@ -58,6 +94,7 @@ export default async function AnalyticsPage() {
       .select('id', { count: 'exact', head: true })
       .gte('updated_at', oneWeekAgo),
     getAgentBackend(supabase),
+    getAgentModel(supabase),
     fetchTraces({ limit: 100, name: 'ai-chat' }),
     fetchScores({ limit: 500 }),
   ])
@@ -106,6 +143,62 @@ export default async function AnalyticsPage() {
   // Tool usage from scores
   const toolCallCounts = scoresByName.get('tool_call_count') ?? []
   const totalToolCalls = toolCallCounts.reduce((a, b) => a + b, 0)
+
+  // --- Per-backend breakdown ---
+  const tracesByBackend = new Map<string, LangfuseTrace[]>()
+  const traceBackendMap = new Map<string, string>()
+  for (const t of traces) {
+    const backendTag = t.tags?.find((tag) => tag.startsWith('backend:'))
+    const b = backendTag?.replace('backend:', '') ?? 'unknown'
+    traceBackendMap.set(t.id, b)
+    if (!tracesByBackend.has(b)) tracesByBackend.set(b, [])
+    tracesByBackend.get(b)!.push(t)
+  }
+
+  const scoresByBackend = new Map<string, LangfuseScore[]>()
+  for (const s of scores) {
+    const b = traceBackendMap.get(s.traceId) ?? 'unknown'
+    if (!scoresByBackend.has(b)) scoresByBackend.set(b, [])
+    scoresByBackend.get(b)!.push(s)
+  }
+
+  const backendRows = [...tracesByBackend.entries()]
+    .filter(([key]) => key !== 'unknown')
+    .map(([name, groupTraces]) => ({
+      name,
+      ...computeGroupStats(groupTraces, scoresByBackend.get(name) ?? []),
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  const totalBackendTraces = backendRows.reduce((s, r) => s + r.count, 0) || 1
+
+  // --- Per-model breakdown ---
+  const tracesByModel = new Map<string, LangfuseTrace[]>()
+  const traceModelMap = new Map<string, string>()
+  for (const t of traces) {
+    const modelTag = t.tags?.find((tag) => tag.startsWith('model:'))
+    const m = modelTag?.replace('model:', '') ?? 'unknown'
+    traceModelMap.set(t.id, m)
+    if (!tracesByModel.has(m)) tracesByModel.set(m, [])
+    tracesByModel.get(m)!.push(t)
+  }
+
+  const scoresByModel = new Map<string, LangfuseScore[]>()
+  for (const s of scores) {
+    const m = traceModelMap.get(s.traceId) ?? 'unknown'
+    if (!scoresByModel.has(m)) scoresByModel.set(m, [])
+    scoresByModel.get(m)!.push(s)
+  }
+
+  const modelRows = [...tracesByModel.entries()]
+    .filter(([key]) => key !== 'unknown')
+    .map(([name, groupTraces]) => ({
+      name,
+      ...computeGroupStats(groupTraces, scoresByModel.get(name) ?? []),
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  const totalModelTraces = modelRows.reduce((s, r) => s + r.count, 0) || 1
 
   const langfuseUrl =
     process.env.LANGFUSE_BASE_URL || 'https://us.cloud.langfuse.com'
@@ -172,6 +265,16 @@ export default async function AnalyticsPage() {
     { name: 'latency_ms', label: 'Avg Latency (scored)' },
   ]
 
+  const BACKEND_COLORS: Record<string, string> = {
+    nextjs: 'bg-blue-500',
+    docker: 'bg-amber-500',
+  }
+
+  const MODEL_COLORS: Record<string, string> = {
+    'claude-sonnet-4-5': 'bg-violet-500',
+    'claude-haiku-4-5': 'bg-teal-500',
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-800">Analytics</h1>
@@ -228,9 +331,161 @@ export default async function AnalyticsPage() {
         ))}
       </div>
 
+      {/* Backend Comparison */}
+      {backendRows.length > 0 && (
+        <div className="mt-10 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Backend Comparison
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Performance by agent backend
+            <span className="ml-1 text-xs text-slate-400">
+              (active: {backend === 'nextjs' ? 'Next.js SDK' : 'Docker'})
+            </span>
+          </p>
+
+          {/* Distribution bar */}
+          <div className="mt-4 flex h-6 w-full overflow-hidden rounded-full bg-slate-100">
+            {backendRows.map((row) => {
+              const pct = (row.count / totalBackendTraces) * 100
+              return (
+                <div
+                  key={row.name}
+                  style={{ width: `${pct}%` }}
+                  className={`${BACKEND_COLORS[row.name] ?? 'bg-slate-400'} flex items-center justify-center text-xs font-medium text-white`}
+                  title={`${row.name}: ${row.count} traces (${pct.toFixed(0)}%)`}
+                >
+                  {pct >= 15 ? `${row.name} ${pct.toFixed(0)}%` : ''}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Comparison table */}
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <th className="py-2 pr-4">Backend</th>
+                  <th className="py-2 pr-4 text-right">Traces</th>
+                  <th className="py-2 pr-4 text-right">Avg Latency</th>
+                  <th className="py-2 pr-4 text-right">Total Cost</th>
+                  <th className="py-2 text-right">Error Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {backendRows.map((row) => (
+                  <tr
+                    key={row.name}
+                    className="border-b border-slate-50"
+                  >
+                    <td className="py-3 pr-4 font-medium text-slate-800">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-2.5 w-2.5 rounded-full ${BACKEND_COLORS[row.name] ?? 'bg-slate-400'}`}
+                        />
+                        {row.name === 'nextjs' ? 'Next.js SDK' : row.name === 'docker' ? 'Docker (Python)' : row.name}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-right text-slate-700">
+                      {row.count}
+                    </td>
+                    <td className="py-3 pr-4 text-right text-slate-700">
+                      {row.avgLatencyMs > 0 ? `${row.avgLatencyMs}ms` : 'N/A'}
+                    </td>
+                    <td className="py-3 pr-4 text-right text-slate-700">
+                      {row.totalCost > 0 ? `$${row.totalCost.toFixed(3)}` : 'N/A'}
+                    </td>
+                    <td className="py-3 text-right text-slate-700">
+                      {(row.errorRate * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Model Comparison */}
+      {modelRows.length > 0 && (
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Model Comparison
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Performance by AI model
+            <span className="ml-1 text-xs text-slate-400">
+              (active: {currentModel})
+            </span>
+          </p>
+
+          {/* Distribution bar */}
+          <div className="mt-4 flex h-6 w-full overflow-hidden rounded-full bg-slate-100">
+            {modelRows.map((row) => {
+              const pct = (row.count / totalModelTraces) * 100
+              return (
+                <div
+                  key={row.name}
+                  style={{ width: `${pct}%` }}
+                  className={`${MODEL_COLORS[row.name] ?? 'bg-slate-400'} flex items-center justify-center text-xs font-medium text-white`}
+                  title={`${row.name}: ${row.count} traces (${pct.toFixed(0)}%)`}
+                >
+                  {pct >= 20 ? `${row.name.replace('claude-', '')} ${pct.toFixed(0)}%` : ''}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Comparison table */}
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <th className="py-2 pr-4">Model</th>
+                  <th className="py-2 pr-4 text-right">Traces</th>
+                  <th className="py-2 pr-4 text-right">Avg Latency</th>
+                  <th className="py-2 pr-4 text-right">Total Cost</th>
+                  <th className="py-2 text-right">Error Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modelRows.map((row) => (
+                  <tr
+                    key={row.name}
+                    className="border-b border-slate-50"
+                  >
+                    <td className="py-3 pr-4 font-medium text-slate-800">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-2.5 w-2.5 rounded-full ${MODEL_COLORS[row.name] ?? 'bg-slate-400'}`}
+                        />
+                        {row.name}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-right text-slate-700">
+                      {row.count}
+                    </td>
+                    <td className="py-3 pr-4 text-right text-slate-700">
+                      {row.avgLatencyMs > 0 ? `${row.avgLatencyMs}ms` : 'N/A'}
+                    </td>
+                    <td className="py-3 pr-4 text-right text-slate-700">
+                      {row.totalCost > 0 ? `$${row.totalCost.toFixed(3)}` : 'N/A'}
+                    </td>
+                    <td className="py-3 text-right text-slate-700">
+                      {(row.errorRate * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Scores Summary */}
       {scores.length > 0 && (
-        <div className="mt-10 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-800">
             Agent Quality Scores
           </h2>
@@ -287,17 +542,29 @@ export default async function AnalyticsPage() {
         </div>
       )}
 
-      {/* Agent Backend */}
+      {/* Agent Configuration Summary */}
       <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-800">
-          Agent Backend
+          Current Configuration
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Active:{' '}
-          <span className="font-medium text-slate-700">
-            {backend === 'nextjs' ? 'Next.js SDK (Vercel AI + Anthropic)' : 'Docker (Python)'}
-          </span>
-        </p>
+        <div className="mt-3 flex flex-wrap gap-6 text-sm text-slate-600">
+          <div>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Backend
+            </span>
+            <p className="mt-0.5 font-medium text-slate-700">
+              {backend === 'nextjs'
+                ? 'Next.js SDK (Vercel AI + Anthropic)'
+                : 'Docker (Python/LangChain)'}
+            </p>
+          </div>
+          <div>
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Model
+            </span>
+            <p className="mt-0.5 font-medium text-slate-700">{currentModel}</p>
+          </div>
+        </div>
       </div>
 
       {/* Langfuse link */}
@@ -332,7 +599,8 @@ export default async function AnalyticsPage() {
             Open Langfuse Dashboard
           </a>
           <span className="text-xs text-slate-400">
-            Traces enriched with: userId, boardId, command type, quality scores
+            Traces enriched with: userId, boardId, command type, backend, model,
+            quality scores
           </span>
         </div>
       </div>
