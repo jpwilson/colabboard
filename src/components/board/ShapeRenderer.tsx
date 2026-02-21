@@ -8,8 +8,10 @@ import type { CanvasObject } from '@/lib/board-sync'
 interface ShapeRendererProps {
   obj: CanvasObject
   isEditing: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, e?: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => void
   onDoubleClick: (id: string) => void
+  onDragStart?: (id: string) => void
+  onDragMove?: (id: string, x: number, y: number) => void
   onDragEnd: (id: string, x: number, y: number) => void
   onTransformEnd: (id: string, node: Konva.Node) => void
 }
@@ -19,6 +21,8 @@ export const ShapeRenderer = memo(function ShapeRenderer({
   isEditing,
   onSelect,
   onDoubleClick,
+  onDragStart,
+  onDragMove,
   onDragEnd,
   onTransformEnd,
 }: ShapeRendererProps) {
@@ -30,8 +34,11 @@ export const ShapeRenderer = memo(function ShapeRenderer({
     height: obj.height,
     rotation: obj.rotation ?? 0,
     draggable: obj.type !== 'connector',
-    onClick: () => onSelect(obj.id),
-    onTap: () => onSelect(obj.id),
+    onClick: (e: Konva.KonvaEventObject<MouseEvent>) => onSelect(obj.id, e),
+    onTap: (e: Konva.KonvaEventObject<TouchEvent>) => onSelect(obj.id, e),
+    onDragStart: () => onDragStart?.(obj.id),
+    onDragMove: (e: Konva.KonvaEventObject<DragEvent>) =>
+      onDragMove?.(obj.id, e.target.x(), e.target.y()),
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) =>
       onDragEnd(obj.id, e.target.x(), e.target.y()),
     onTransformEnd: (e: Konva.KonvaEventObject<Event>) =>
@@ -276,8 +283,8 @@ export const ShapeRenderer = memo(function ShapeRenderer({
         strokeWidth: strokeWidth || 2,
         opacity,
         hitStrokeWidth: 12,
-        onClick: () => onSelect(obj.id),
-        onTap: () => onSelect(obj.id),
+        onClick: (e: Konva.KonvaEventObject<MouseEvent>) => onSelect(obj.id, e),
+        onTap: (e: Konva.KonvaEventObject<TouchEvent>) => onSelect(obj.id, e),
       }
 
       if (style === 'none') {
