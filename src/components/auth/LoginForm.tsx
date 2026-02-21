@@ -341,13 +341,13 @@ export function LoginForm() {
               Temporary accounts for assignment graders. Click to sign in
               instantly as a unique test user.
             </p>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                 <button
                   key={n}
                   onClick={() => handleGraderSignIn(n)}
                   disabled={graderLoading !== null}
-                  className="flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-medium text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:opacity-50"
+                  className="flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:opacity-50"
                 >
                   {graderLoading === n ? (
                     <svg
@@ -370,7 +370,7 @@ export function LoginForm() {
                       />
                     </svg>
                   ) : (
-                    `G${n}`
+                    `Grader ${n}`
                   )}
                 </button>
               ))}
