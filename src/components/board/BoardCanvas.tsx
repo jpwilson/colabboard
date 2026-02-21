@@ -10,6 +10,7 @@ import { PresenceIndicator } from './PresenceIndicator'
 import { ShapeRenderer } from './ShapeRenderer'
 import { Toolbar, type Tool, type ShapeTool } from './Toolbar'
 import { PropertiesPanel } from './PropertiesPanel'
+import { ConnectionIndicator } from './ConnectionIndicator'
 import { AiAgentPanel } from '@/components/ui/AiAgentButton'
 import { SHAPE_DEFAULTS, STICKY_COLORS } from '@/lib/shape-defaults'
 import type { CanvasObject, ShapeType } from '@/lib/board-sync'
@@ -89,6 +90,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const {
     objects: syncObjects,
     loading: syncLoading,
+    connectionStatus,
     addObject,
     updateObject,
     deleteObject,
@@ -718,6 +720,9 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       />
 
       <div className="relative flex-1 overflow-hidden bg-gray-50">
+        {/* Connection status indicator */}
+        {syncEnabled && <ConnectionIndicator status={connectionStatus} />}
+
         {/* Properties panel */}
         <PropertiesPanel selectedObject={selectedObject} onUpdate={updateObjectHelper} objectScreenPosition={selectedObjectScreenPos} />
 
