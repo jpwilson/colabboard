@@ -11,7 +11,7 @@ const BACKENDS: Array<{
 }> = [
   {
     id: 'nextjs',
-    name: 'Next.js SDK',
+    name: 'Vercel AI SDK',
     description:
       'Inline agent using Vercel AI SDK + Anthropic. Runs within the Next.js app. Zero additional infrastructure.',
     tech: 'Vercel AI SDK v6 + Claude + Langfuse',
@@ -55,6 +55,10 @@ export function AgentSelector({
     nextjs: null,
     docker: null,
   })
+  const [checking, setChecking] = useState<Record<AgentBackend, boolean>>({
+    nextjs: false,
+    docker: false,
+  })
   const [saving, startSaving] = useTransition()
   const [saved, setSaved] = useState(false)
 
@@ -62,12 +66,16 @@ export function AgentSelector({
     selectedBackend !== currentBackend || selectedModel !== currentModel
 
   const checkHealth = async (backend: AgentBackend) => {
+    setChecking((prev) => ({ ...prev, [backend]: true }))
+    setStatus((prev) => ({ ...prev, [backend]: null }))
     try {
       const res = await fetch(`/api/admin/agent/health?backend=${backend}`)
       const data = await res.json()
       setStatus((prev) => ({ ...prev, [backend]: data.healthy }))
     } catch {
       setStatus((prev) => ({ ...prev, [backend]: false }))
+    } finally {
+      setChecking((prev) => ({ ...prev, [backend]: false }))
     }
   }
 
@@ -139,9 +147,10 @@ export function AgentSelector({
                       e.stopPropagation()
                       checkHealth(backend.id)
                     }}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                    disabled={checking[backend.id]}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
                   >
-                    Check Health
+                    {checking[backend.id] ? 'Checking...' : 'Check Health'}
                   </button>
                 </div>
               </div>

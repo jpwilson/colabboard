@@ -35,7 +35,7 @@ export default async function AdminOverview() {
     },
     {
       label: 'Agent Backend',
-      value: backendResult === 'nextjs' ? 'Next.js SDK' : 'Docker',
+      value: backendResult === 'nextjs' ? 'Vercel AI SDK' : 'Docker',
       color: 'bg-amber-50 text-amber-700',
     },
   ]

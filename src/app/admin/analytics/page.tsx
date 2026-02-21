@@ -340,7 +340,7 @@ export default async function AnalyticsPage() {
           <p className="mt-1 text-sm text-slate-500">
             Performance by agent backend
             <span className="ml-1 text-xs text-slate-400">
-              (active: {backend === 'nextjs' ? 'Next.js SDK' : 'Docker'})
+              (active: {backend === 'nextjs' ? 'Vercel AI SDK' : 'Docker'})
             </span>
           </p>
 
@@ -384,7 +384,7 @@ export default async function AnalyticsPage() {
                         <span
                           className={`inline-block h-2.5 w-2.5 rounded-full ${BACKEND_COLORS[row.name] ?? 'bg-slate-400'}`}
                         />
-                        {row.name === 'nextjs' ? 'Next.js SDK' : row.name === 'docker' ? 'Docker (Python)' : row.name}
+                        {row.name === 'nextjs' ? 'Vercel AI SDK' : row.name === 'docker' ? 'Docker (Python)' : row.name}
                       </span>
                     </td>
                     <td className="py-3 pr-4 text-right text-slate-700">
@@ -554,7 +554,7 @@ export default async function AnalyticsPage() {
             </span>
             <p className="mt-0.5 font-medium text-slate-700">
               {backend === 'nextjs'
-                ? 'Next.js SDK (Vercel AI + Anthropic)'
+                ? 'Vercel AI SDK (Anthropic)'
                 : 'Docker (Python/LangChain)'}
             </p>
           </div>

@@ -11,7 +11,7 @@ import { postScores, patchTrace } from '@/lib/ai/langfuse-scores'
 import type { AgentAdapter, AgentChatRequest } from '@/lib/ai/agent-adapter'
 
 export class NextJSAdapter implements AgentAdapter {
-  readonly name = 'Next.js SDK (Vercel AI + Anthropic)'
+  readonly name = 'Vercel AI SDK (Anthropic)'
 
   async chat(request: AgentChatRequest): Promise<Response> {
     const { messages, boardId, verbose, model, supabase } = request
