@@ -154,32 +154,30 @@ async function CostAnalysisContent() {
         ))}
       </div>
 
-      {/* Traces over time */}
-      {dailyData.length > 1 && (
-        <div className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-800">
-            Traces Over Time
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Daily AI agent request volume
-          </p>
-          <div className="mt-4">
-            <SvgLineChart series={tracesSeries} height={220} />
+      {/* Traces + Cost charts side by side on large viewports */}
+      {dailyData.length > 0 && (
+        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-800">
+              Traces Over Time
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Daily AI agent request volume
+            </p>
+            <div className="mt-4">
+              <SvgLineChart series={tracesSeries} height={220} />
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Cost over time */}
-      {dailyData.length > 1 && (
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-800">
-            Cost Over Time
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Daily LLM API spend
-          </p>
-          <div className="mt-4">
-            <SvgLineChart series={costSeries} height={220} yLabel="$" />
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-800">
+              Cost Over Time
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Daily LLM API spend
+            </p>
+            <div className="mt-4">
+              <SvgLineChart series={costSeries} height={220} yLabel="$" />
+            </div>
           </div>
         </div>
       )}

@@ -84,18 +84,18 @@ export interface ProjectionTier {
 export const getSupabaseClient = cache(() => createClient())
 
 export const getLangfuseTraces = cache(
-  () => fetchTraces({ limit: 100 }) as Promise<LangfuseTrace[]>,
+  () => fetchTraces({ limit: 500 }) as Promise<LangfuseTrace[]>,
 )
 
 export const getLangfuseScores = cache(
-  () => fetchScores({ limit: 500 }) as Promise<LangfuseScore[]>,
+  () => fetchScores({ limit: 1000 }) as Promise<LangfuseScore[]>,
 )
 
 export const getLangfuseObservations = cache(
   () =>
     fetchObservations({
       type: 'GENERATION',
-      limit: 200,
+      limit: 500,
     }) as Promise<LangfuseObservation[]>,
 )
 

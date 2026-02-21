@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/analytics', label: 'Metrics' },
       { href: '/admin/analytics/costs', label: 'Cost Analysis' },
-      { href: '/admin/analytics/projections', label: 'Projections' },
+      { href: '/admin/analytics/projections', label: 'Cost Projections' },
     ],
   },
   {

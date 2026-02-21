@@ -17,7 +17,7 @@ export default function ProjectionsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-800">
-        Production Projections
+        Production Cost Projections
       </h1>
       <p className="mt-1 text-sm text-slate-500">
         Estimated costs at different user scales
