@@ -116,6 +116,7 @@ export async function fetchTraces(options?: {
     `${LANGFUSE_BASE_URL}/api/public/traces?${params.toString()}`,
     {
       headers: { Authorization: auth },
+      cache: 'no-store',
     },
   ).catch(() => null)
 
@@ -142,6 +143,7 @@ export async function fetchScores(options?: {
     `${LANGFUSE_BASE_URL}/api/public/scores?${params.toString()}`,
     {
       headers: { Authorization: auth },
+      cache: 'no-store',
     },
   ).catch(() => null)
 
@@ -186,6 +188,7 @@ export async function fetchDailyMetrics(options?: {
     `${LANGFUSE_BASE_URL}/api/public/metrics/daily?${params.toString()}`,
     {
       headers: { Authorization: auth },
+      cache: 'no-store',
     },
   ).catch(() => null)
 

@@ -101,9 +101,9 @@ export default async function AnalyticsPage() {
       .gte('updated_at', oneWeekAgo),
     getAgentBackend(supabase),
     getAgentModel(supabase),
-    fetchTraces({ limit: 100, name: 'ai-chat' }),
+    fetchTraces({ limit: 100 }),
     fetchScores({ limit: 500 }),
-    fetchDailyMetrics({ traceName: 'ai-chat', limit: 90 }),
+    fetchDailyMetrics({ limit: 90 }),
   ])
 
   const traces = langfuseTraces as LangfuseTrace[]
