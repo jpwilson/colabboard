@@ -109,15 +109,13 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   objectsRef2.current = objects
   nextZIndexRef.current = nextZIndex
 
-  // Convert selected object's canvas coords to screen coords for PropertiesPanel positioning
+  // Convert selected object's screen bounding box for PropertiesPanel positioning
   const selectedObjectScreenPos = useMemo(() => {
     if (!selectedObject) return null
-    const centerX = selectedObject.x + (selectedObject.width || 0) / 2
-    const centerY = selectedObject.y + (selectedObject.height || 0) / 2
-    return {
-      x: centerX * stageScale + stagePos.x,
-      y: centerY * stageScale + stagePos.y + 48, // +48 for toolbar height
-    }
+    const leftX = selectedObject.x * stageScale + stagePos.x
+    const rightX = (selectedObject.x + (selectedObject.width || 0)) * stageScale + stagePos.x
+    const centerY = (selectedObject.y + (selectedObject.height || 0) / 2) * stageScale + stagePos.y + 48
+    return { leftX, rightX, y: centerY }
   }, [selectedObject, stageScale, stagePos])
 
   // Helper to add an object (synced or local)

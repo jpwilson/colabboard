@@ -10,7 +10,7 @@ import { useDraggable } from '@/hooks/useDraggable'
 interface PropertiesPanelProps {
   selectedObject: CanvasObject | null
   onUpdate: (id: string, updates: Partial<CanvasObject>) => void
-  objectScreenPosition: { x: number; y: number } | null
+  objectScreenPosition: { leftX: number; rightX: number; y: number } | null
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -61,14 +61,14 @@ export function PropertiesPanel({ selectedObject, onUpdate, objectScreenPosition
     if (prevSelectedIdRef.current === selectedObject.id) return
     prevSelectedIdRef.current = selectedObject.id
 
-    // Try to place to the right of the object with comfortable gap
-    const GAP = 100
-    let x = objectScreenPosition.x + GAP
+    // Position panel next to the object, not on top of it
+    const GAP = 20
+    let x = objectScreenPosition.rightX + GAP
     let y = objectScreenPosition.y - PANEL_HEIGHT / 2
 
-    // If too far right, place to the left
+    // If panel would go off the right edge, place to the left of the object
     if (x + PANEL_WIDTH > window.innerWidth - 10) {
-      x = objectScreenPosition.x - PANEL_WIDTH - GAP
+      x = objectScreenPosition.leftX - PANEL_WIDTH - GAP
     }
 
     // Clamp to viewport
