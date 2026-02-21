@@ -3,9 +3,8 @@ import { getAgentBackend, getAgentModel } from '@/lib/supabase/admin'
 import {
   fetchTraces,
   fetchScores,
-  fetchDailyMetrics,
+  fetchObservations,
 } from '@/lib/ai/langfuse-scores'
-import type { DailyMetric } from '@/lib/ai/langfuse-scores'
 
 function getTimeRanges() {
   const now = Date.now()
@@ -29,6 +28,16 @@ interface LangfuseScore {
   traceId: string
   name: string
   value: number
+}
+
+interface LangfuseObservation {
+  id: string
+  traceId: string
+  type: string
+  model?: string
+  usage?: { input?: number; output?: number; total?: number }
+  totalCost?: number
+  startTime?: string
 }
 
 interface GroupStats {
@@ -81,7 +90,7 @@ export default async function AnalyticsPage() {
     currentModel,
     langfuseTraces,
     langfuseScoresData,
-    dailyMetrics,
+    langfuseObservations,
   ] = await Promise.all([
     supabase
       .from('board_objects')
@@ -103,7 +112,7 @@ export default async function AnalyticsPage() {
     getAgentModel(supabase),
     fetchTraces({ limit: 100 }),
     fetchScores({ limit: 500 }),
-    fetchDailyMetrics({ limit: 90 }),
+    fetchObservations({ type: 'GENERATION', limit: 200 }),
   ])
 
   const traces = langfuseTraces as LangfuseTrace[]
@@ -283,32 +292,29 @@ export default async function AnalyticsPage() {
     'claude-haiku-4-5': 'bg-teal-500',
   }
 
-  // --- Cost Analysis from Daily Metrics ---
-  const metrics = dailyMetrics as DailyMetric[]
-  const metricsTotalCost = metrics.reduce((s, d) => s + d.totalCost, 0)
-  const metricsTotalTraces = metrics.reduce((s, d) => s + d.countTraces, 0)
+  // --- Cost Analysis from Traces + Observations ---
+  const observations = langfuseObservations as LangfuseObservation[]
 
-  // Aggregate token usage across all days and models
+  // Aggregate token usage and cost per model from observations
   const modelUsageMap = new Map<
     string,
     { input: number; output: number; total: number; cost: number; traces: number }
   >()
-  for (const day of metrics) {
-    for (const u of day.usage) {
-      const existing = modelUsageMap.get(u.model) ?? {
-        input: 0,
-        output: 0,
-        total: 0,
-        cost: 0,
-        traces: 0,
-      }
-      existing.input += u.inputUsage
-      existing.output += u.outputUsage
-      existing.total += u.totalUsage
-      existing.cost += u.totalCost
-      existing.traces += u.countTraces
-      modelUsageMap.set(u.model, existing)
+  for (const obs of observations) {
+    const model = obs.model ?? 'unknown'
+    const existing = modelUsageMap.get(model) ?? {
+      input: 0,
+      output: 0,
+      total: 0,
+      cost: 0,
+      traces: 0,
     }
+    existing.input += obs.usage?.input ?? 0
+    existing.output += obs.usage?.output ?? 0
+    existing.total += (obs.usage?.input ?? 0) + (obs.usage?.output ?? 0)
+    existing.cost += obs.totalCost ?? 0
+    existing.traces += 1
+    modelUsageMap.set(model, existing)
   }
   const totalInputTokens = [...modelUsageMap.values()].reduce(
     (s, v) => s + v.input,
@@ -318,7 +324,48 @@ export default async function AnalyticsPage() {
     (s, v) => s + v.output,
     0,
   )
+  const observationsTotalCost = [...modelUsageMap.values()].reduce(
+    (s, v) => s + v.cost,
+    0,
+  )
+
+  // Use traces for count, observations for cost (more accurate per-model)
+  const metricsTotalCost = observationsTotalCost > 0 ? observationsTotalCost : totalCost
+  const metricsTotalTraces = totalTraces
   const totalTokens = totalInputTokens + totalOutputTokens
+
+  // Token-level data availability flag
+  const hasTokenData = totalInputTokens > 0 || totalOutputTokens > 0
+
+  // --- Traces by date (for sparkline) ---
+  const tracesByDate = new Map<string, { count: number; cost: number }>()
+  for (const t of traces) {
+    if (!t.createdAt) continue
+    const date = t.createdAt.slice(0, 10)
+    const existing = tracesByDate.get(date) ?? { count: 0, cost: 0 }
+    existing.count += 1
+    existing.cost += t.totalCost ?? 0
+    tracesByDate.set(date, existing)
+  }
+  const dailyData = [...tracesByDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, data]) => ({ date, ...data }))
+
+  // --- User consumption (cost per user) ---
+  const costByUser = new Map<string, { cost: number; traces: number }>()
+  for (const t of traces) {
+    const userId = t.metadata?.userId as string | undefined
+    const key = userId ?? 'anonymous'
+    const existing = costByUser.get(key) ?? { cost: 0, traces: 0 }
+    existing.cost += t.totalCost ?? 0
+    existing.traces += 1
+    costByUser.set(key, existing)
+  }
+  const userRows = [...costByUser.entries()]
+    .map(([user, data]) => ({ user: user.slice(0, 12) + (user.length > 12 ? '...' : ''), ...data }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 10)
+  const maxUserCost = Math.max(...userRows.map((r) => r.cost), 0.001)
 
   // Per-request averages for projections
   const avgCostPerRequest =
@@ -436,7 +483,7 @@ export default async function AnalyticsPage() {
           </span>
         </h2>
         <p className="mt-1 text-sm text-slate-500">
-          Actual LLM spend tracked via Langfuse Daily Metrics API
+          Actual LLM spend tracked via Langfuse Traces &amp; Observations API
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -463,22 +510,62 @@ export default async function AnalyticsPage() {
               Input Tokens
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-800">
-              {totalInputTokens > 0
+              {hasTokenData
                 ? totalInputTokens.toLocaleString()
                 : 'N/A'}
             </p>
+            {!hasTokenData && (
+              <p className="mt-1 text-[10px] text-amber-500">Rate limited by Langfuse hobby plan</p>
+            )}
           </div>
           <div className="rounded-lg border border-slate-100 p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
               Output Tokens
             </p>
             <p className="mt-1 text-2xl font-bold text-slate-800">
-              {totalOutputTokens > 0
+              {hasTokenData
                 ? totalOutputTokens.toLocaleString()
                 : 'N/A'}
             </p>
+            {!hasTokenData && (
+              <p className="mt-1 text-[10px] text-amber-500">Rate limited by Langfuse hobby plan</p>
+            )}
           </div>
         </div>
+
+        {/* Traces by date — mini bar chart */}
+        {dailyData.length > 0 && (
+          <div className="mt-5">
+            <h3 className="mb-2 text-sm font-semibold text-slate-600">
+              Traces by Day
+            </h3>
+            <div className="flex items-end gap-1" style={{ height: 80 }}>
+              {dailyData.map((d) => {
+                const maxCount = Math.max(...dailyData.map((x) => x.count), 1)
+                const pct = (d.count / maxCount) * 100
+                return (
+                  <div
+                    key={d.date}
+                    className="group relative flex-1"
+                    style={{ height: '100%' }}
+                  >
+                    <div
+                      className="absolute bottom-0 w-full rounded-t bg-indigo-400 transition-colors group-hover:bg-indigo-500"
+                      style={{ height: `${Math.max(pct, 4)}%` }}
+                    />
+                    <div className="absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-white group-hover:block">
+                      {d.date.slice(5)}: {d.count} traces, ${d.cost.toFixed(3)}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+              <span>{dailyData[0]?.date.slice(5)}</span>
+              <span>{dailyData[dailyData.length - 1]?.date.slice(5)}</span>
+            </div>
+          </div>
+        )}
 
         {/* Cost per model */}
         {modelUsageRows.length > 0 && (
@@ -490,7 +577,7 @@ export default async function AnalyticsPage() {
               <thead>
                 <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
                   <th className="py-2 pr-4">Model</th>
-                  <th className="py-2 pr-4 text-right">Traces</th>
+                  <th className="py-2 pr-4 text-right">Generations</th>
                   <th className="py-2 pr-4 text-right">Input Tokens</th>
                   <th className="py-2 pr-4 text-right">Output Tokens</th>
                   <th className="py-2 text-right">Cost</th>
@@ -509,10 +596,10 @@ export default async function AnalyticsPage() {
                       {row.traces}
                     </td>
                     <td className="py-2 pr-4 text-right text-slate-600">
-                      {row.input.toLocaleString()}
+                      {row.input > 0 ? row.input.toLocaleString() : '-'}
                     </td>
                     <td className="py-2 pr-4 text-right text-slate-600">
-                      {row.output.toLocaleString()}
+                      {row.output > 0 ? row.output.toLocaleString() : '-'}
                     </td>
                     <td className="py-2 text-right font-medium text-slate-700">
                       ${row.cost.toFixed(4)}
@@ -524,11 +611,38 @@ export default async function AnalyticsPage() {
           </div>
         )}
 
+        {/* User consumption — bar chart like Langfuse */}
+        {userRows.length > 0 && (
+          <div className="mt-5">
+            <h3 className="mb-2 text-sm font-semibold text-slate-600">
+              User Consumption
+            </h3>
+            <div className="space-y-1.5">
+              {userRows.map((row) => (
+                <div key={row.user} className="flex items-center gap-3 text-sm">
+                  <span className="w-28 truncate text-xs text-slate-500" title={row.user}>
+                    {row.user}
+                  </span>
+                  <div className="flex-1">
+                    <div
+                      className="h-5 rounded bg-gradient-to-r from-indigo-400 to-violet-400"
+                      style={{ width: `${(row.cost / maxUserCost) * 100}%`, minWidth: 4 }}
+                    />
+                  </div>
+                  <span className="w-20 text-right text-xs font-medium text-slate-700">
+                    ${row.cost.toFixed(4)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Other costs */}
         <div className="mt-5 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
           <div className="rounded-lg bg-slate-50 p-3">
             <p className="font-medium text-slate-700">Observability</p>
-            <p className="text-xs text-slate-500">Langfuse free tier</p>
+            <p className="text-xs text-slate-500">Langfuse hobby plan</p>
             <p className="mt-1 text-lg font-bold text-green-600">$0</p>
           </div>
           <div className="rounded-lg bg-slate-50 p-3">
@@ -542,6 +656,13 @@ export default async function AnalyticsPage() {
             <p className="mt-1 text-lg font-bold text-green-600">$0</p>
           </div>
         </div>
+
+        {!hasTokenData && (
+          <p className="mt-3 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Token-level data may be unavailable due to Langfuse hobby plan rate limits (100 req/min).
+            Cost data is derived from trace-level totals. Upgrade to Langfuse Pro for full metrics.
+          </p>
+        )}
       </div>
 
       {/* Production Cost Projections */}
