@@ -105,11 +105,13 @@ export function usePresence({ boardId, userId, userName }: UsePresenceOptions) {
         })
       })
       .subscribe(async (status) => {
-        if (status !== 'SUBSCRIBED') return
-        await channel.track({
-          userId,
-          userName,
-        })
+        if (status === 'SUBSCRIBED') {
+          // Track presence (initial subscribe or reconnect re-track)
+          await channel.track({
+            userId,
+            userName,
+          })
+        }
       })
 
     const buffer = cursorBufferRef.current

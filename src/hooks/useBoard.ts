@@ -12,6 +12,8 @@ import {
   type CanvasObject,
 } from '@/lib/board-sync'
 
+export type ConnectionStatus = 'connected' | 'reconnecting' | 'disconnected'
+
 interface UseBoardOptions {
   boardId: string
   userId: string
@@ -20,8 +22,10 @@ interface UseBoardOptions {
 export function useBoard({ boardId, userId }: UseBoardOptions) {
   const [objects, setObjects] = useState<CanvasObject[]>([])
   const [loading, setLoading] = useState(true)
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connected')
   const objectsRef = useRef<Map<string, CanvasObject>>(new Map())
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const hasSubscribedRef = useRef(false)
 
   // Sync objectsRef with state
   const syncState = useCallback(() => {
@@ -31,36 +35,34 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
     setObjects(sorted)
   }, [])
 
+  // Reusable fetch function — called on initial load and reconnect
+  const fetchObjects = useCallback(async () => {
+    if (!boardId) return
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('board_objects')
+      .select('*')
+      .eq('board_id', boardId)
+      .order('z_index', { ascending: true })
+
+    if (error) {
+      console.error('Failed to fetch board objects:', error)
+      return
+    }
+
+    const map = new Map<string, CanvasObject>()
+    for (const obj of data || []) {
+      map.set(obj.id, boardObjectToCanvas(obj as BoardObject))
+    }
+    objectsRef.current = map
+    syncState()
+  }, [boardId, syncState])
+
   // Fetch initial objects
   useEffect(() => {
     if (!boardId) return
-
-    const supabase = createClient()
-
-    async function fetchObjects() {
-      const { data, error } = await supabase
-        .from('board_objects')
-        .select('*')
-        .eq('board_id', boardId)
-        .order('z_index', { ascending: true })
-
-      if (error) {
-        console.error('Failed to fetch board objects:', error)
-        setLoading(false)
-        return
-      }
-
-      const map = new Map<string, CanvasObject>()
-      for (const obj of data || []) {
-        map.set(obj.id, boardObjectToCanvas(obj as BoardObject))
-      }
-      objectsRef.current = map
-      syncState()
-      setLoading(false)
-    }
-
-    fetchObjects()
-  }, [boardId, syncState])
+    fetchObjects().then(() => setLoading(false))
+  }, [boardId, fetchObjects])
 
   // Subscribe to broadcast + postgres changes
   useEffect(() => {
@@ -106,13 +108,45 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
       },
     )
 
-    channel.subscribe()
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        setConnectionStatus('connected')
+        // On reconnect, re-fetch to catch any missed changes
+        if (hasSubscribedRef.current) {
+          fetchObjects()
+        }
+        hasSubscribedRef.current = true
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        setConnectionStatus('reconnecting')
+      } else if (status === 'CLOSED') {
+        setConnectionStatus('disconnected')
+      }
+    })
 
     return () => {
       supabase.removeChannel(channel)
       channelRef.current = null
+      hasSubscribedRef.current = false
     }
-  }, [boardId, syncState])
+  }, [boardId, syncState, fetchObjects])
+
+  // navigator.onLine supplementary signal
+  useEffect(() => {
+    function handleOffline() {
+      setConnectionStatus('disconnected')
+    }
+    function handleOnline() {
+      setConnectionStatus('reconnecting')
+      // Re-fetch to recover any missed changes
+      fetchObjects()
+    }
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [fetchObjects])
 
   const broadcast = useCallback(
     (payload: BroadcastPayload) => {
@@ -239,5 +273,5 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
     [boardId, syncState, broadcast],
   )
 
-  return { objects, loading, addObject, updateObject, deleteObject }
+  return { objects, loading, connectionStatus, addObject, updateObject, deleteObject }
 }
