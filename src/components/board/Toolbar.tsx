@@ -159,7 +159,7 @@ export function Toolbar({
   const activeShapeOption = SHAPE_OPTIONS.find((s) => s.type === shapeTool) || SHAPE_OPTIONS[0]
 
   const toolBtnClass = (active: boolean) =>
-    `rounded-lg px-3 py-1.5 text-sm font-medium tracking-tight transition ${
+    `rounded-lg px-3 py-2 text-[15px] font-medium tracking-tight transition ${
       active ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50'
     }`
 
@@ -178,11 +178,11 @@ export function Toolbar({
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-slate-200/50 bg-white px-4 py-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+    <div className="flex items-center gap-2 border-b-2 border-slate-300 bg-white px-4 py-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
       {/* Logo + Dashboard link */}
       <a
         href="/dashboard"
-        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold uppercase tracking-wider text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
+        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-bold uppercase tracking-wider text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
       >
         <OrimLogo size="sm" showText={false} />
         <span className="hidden sm:inline">Dashboard</span>
@@ -210,11 +210,11 @@ export function Toolbar({
             />
           ) : (
             <span
-              className={`font-nunito mr-2 max-w-[200px] truncate text-sm font-bold tracking-tight text-slate-700 ${
+              className={`font-nunito mr-2 max-w-[200px] truncate text-[15px] font-bold tracking-tight text-slate-700 ${
                 isOwner && onRename ? 'cursor-pointer hover:text-blue-600' : ''
               }`}
-              onDoubleClick={handleStartEditing}
-              title={isOwner ? 'Double-click to rename' : boardName}
+              onClick={handleStartEditing}
+              title={isOwner ? 'Click to rename' : boardName}
             >
               {boardName}
             </span>
@@ -235,16 +235,16 @@ export function Toolbar({
         <div className="flex">
           <button
             onClick={() => onToolChange('sticky_note')}
-            className={`rounded-l px-3 py-1.5 text-sm font-medium transition ${
+            className={`rounded-l px-3 py-2 text-[15px] font-medium transition ${
               tool === 'sticky_note' ? 'bg-yellow-100 text-yellow-700' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <span className="mr-1 inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: stickyColor }} />
+            <span className="mr-1 inline-block h-3.5 w-3.5 rounded-sm" style={{ backgroundColor: stickyColor }} />
             Note
           </button>
           <button
             onClick={() => setStickyDropdownOpen(!stickyDropdownOpen)}
-            className={`rounded-r border-l border-slate-200 px-1 py-1.5 text-xs transition ${
+            className={`rounded-r border-l border-slate-200 px-1.5 py-2 text-sm transition ${
               tool === 'sticky_note' ? 'bg-yellow-100 text-yellow-700' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -297,7 +297,7 @@ export function Toolbar({
         className={toolBtnClass(tool === 'text')}
         title="Add text"
       >
-        <span className="inline text-sm font-bold">T</span>
+        <span className="inline text-[15px] font-bold">T</span>
       </button>
 
       {/* Shapes dropdown */}
@@ -305,7 +305,7 @@ export function Toolbar({
         <div className="flex">
           <button
             onClick={() => onToolChange('shape')}
-            className={`rounded-l px-3 py-1.5 text-sm font-medium transition ${
+            className={`rounded-l px-3 py-2 text-[15px] font-medium transition ${
               tool === 'shape' ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -314,7 +314,7 @@ export function Toolbar({
           </button>
           <button
             onClick={() => setShapeDropdownOpen(!shapeDropdownOpen)}
-            className={`rounded-r border-l border-slate-200 px-1 py-1.5 text-xs transition ${
+            className={`rounded-r border-l border-slate-200 px-1.5 py-2 text-sm transition ${
               tool === 'shape' ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -376,7 +376,7 @@ export function Toolbar({
           <div className="h-6 w-px bg-slate-200" />
           <button
             onClick={onDelete}
-            className="rounded px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            className="rounded px-3 py-2 text-[15px] text-red-600 hover:bg-red-50"
           >
             <svg className="inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -392,20 +392,20 @@ export function Toolbar({
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className={`rounded px-2 py-1.5 text-sm transition ${canUndo ? 'text-slate-600 hover:bg-slate-100' : 'cursor-default text-slate-300'}`}
+            className={`rounded px-2.5 py-2 text-[15px] transition ${canUndo ? 'text-slate-600 hover:bg-slate-100' : 'cursor-default text-slate-300'}`}
             title="Undo (Cmd+Z)"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
             </svg>
           </button>
           <button
             onClick={onRedo}
             disabled={!canRedo}
-            className={`rounded px-2 py-1.5 text-sm transition ${canRedo ? 'text-slate-600 hover:bg-slate-100' : 'cursor-default text-slate-300'}`}
+            className={`rounded px-2.5 py-2 text-[15px] transition ${canRedo ? 'text-slate-600 hover:bg-slate-100' : 'cursor-default text-slate-300'}`}
             title="Redo (Cmd+Shift+Z)"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
             </svg>
           </button>
@@ -419,7 +419,7 @@ export function Toolbar({
         <button
           onClick={onCycleGrid}
           data-tour-step="grid"
-          className={`flex items-center gap-1 rounded px-2 py-1.5 text-sm transition ${
+          className={`flex items-center gap-1 rounded px-2.5 py-2 text-[15px] transition ${
             gridMode !== 'none' ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'
           }`}
           title={`Grid: ${gridMode} (click to cycle)`}
@@ -427,7 +427,7 @@ export function Toolbar({
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={gridMode !== 'none' ? 2 : 1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
           </svg>
-          <span className="text-[10px] font-medium">{gridMode === 'none' ? 'Off' : gridMode === 'dots' ? 'Dots' : 'Lines'}</span>
+          <span className="text-xs font-medium">{gridMode === 'none' ? 'Off' : gridMode === 'dots' ? 'Dots' : 'Lines'}</span>
         </button>
       )}
 
@@ -436,14 +436,14 @@ export function Toolbar({
         <div className="flex items-center gap-0.5">
           <button
             onClick={onZoomOut}
-            className="rounded px-1.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+            className="rounded px-2 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100"
             title="Zoom out (Cmd -)"
           >
             −
           </button>
           <button
             onClick={onZoomFit}
-            className="rounded px-1.5 py-1 text-slate-500 hover:bg-slate-100"
+            className="rounded px-2 py-1.5 text-slate-500 hover:bg-slate-100"
             title="Fit to content (Cmd 0)"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -452,7 +452,7 @@ export function Toolbar({
           </button>
           <button
             onClick={onZoomIn}
-            className="rounded px-1.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+            className="rounded px-2 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100"
             title="Zoom in (Cmd +)"
           >
             +
@@ -468,7 +468,7 @@ export function Toolbar({
       {boardSlug && (
         <button
           onClick={() => setShareModalOpen(true)}
-          className="rounded px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+          className="rounded px-3 py-2 text-[15px] font-medium text-slate-600 hover:bg-slate-100"
           title="Share board"
           data-tour-step="share"
         >
@@ -490,7 +490,7 @@ export function Toolbar({
       )}
 
       {/* Help text */}
-      <span className="hidden text-xs text-slate-400 lg:inline">
+      <span className="hidden text-sm text-slate-400 lg:inline">
         {tool === 'select' && 'Click to select, Shift+click for multi-select, scroll to zoom'}
         {tool === 'sticky_note' && 'Click to place sticky note'}
         {tool === 'text' && 'Click to place text'}
