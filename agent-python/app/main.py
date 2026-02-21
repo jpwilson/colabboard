@@ -47,15 +47,11 @@ def _get_supabase():
 async def health():
     api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_KEY", "")
     has_key = bool(api_key and api_key.startswith("sk-ant-"))
-    # Debug: show which env vars the container sees
-    env_keys = sorted([k for k in os.environ.keys() if not k.startswith("_")])
     return {
         "status": "ok",
         "backend": "docker",
         "model": DEFAULT_MODEL,
         "has_anthropic_key": has_key,
-        "key_prefix": api_key[:12] + "..." if api_key else "MISSING",
-        "env_keys": env_keys,
     }
 
 

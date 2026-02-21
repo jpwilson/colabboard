@@ -1,6 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { getAgentBackend, getAgentModel } from '@/lib/supabase/admin'
-import { fetchTraces, fetchScores } from '@/lib/ai/langfuse-scores'
+import {
+  fetchTraces,
+  fetchScores,
+  fetchDailyMetrics,
+} from '@/lib/ai/langfuse-scores'
+import type { DailyMetric } from '@/lib/ai/langfuse-scores'
 
 function getTimeRanges() {
   const now = Date.now()
@@ -76,6 +81,7 @@ export default async function AnalyticsPage() {
     currentModel,
     langfuseTraces,
     langfuseScoresData,
+    dailyMetrics,
   ] = await Promise.all([
     supabase
       .from('board_objects')
@@ -97,6 +103,7 @@ export default async function AnalyticsPage() {
     getAgentModel(supabase),
     fetchTraces({ limit: 100, name: 'ai-chat' }),
     fetchScores({ limit: 500 }),
+    fetchDailyMetrics({ traceName: 'ai-chat', limit: 90 }),
   ])
 
   const traces = langfuseTraces as LangfuseTrace[]
@@ -275,6 +282,94 @@ export default async function AnalyticsPage() {
     'claude-haiku-4-5': 'bg-teal-500',
   }
 
+  // --- Cost Analysis from Daily Metrics ---
+  const metrics = dailyMetrics as DailyMetric[]
+  const metricsTotalCost = metrics.reduce((s, d) => s + d.totalCost, 0)
+  const metricsTotalTraces = metrics.reduce((s, d) => s + d.countTraces, 0)
+
+  // Aggregate token usage across all days and models
+  const modelUsageMap = new Map<
+    string,
+    { input: number; output: number; total: number; cost: number; traces: number }
+  >()
+  for (const day of metrics) {
+    for (const u of day.usage) {
+      const existing = modelUsageMap.get(u.model) ?? {
+        input: 0,
+        output: 0,
+        total: 0,
+        cost: 0,
+        traces: 0,
+      }
+      existing.input += u.inputUsage
+      existing.output += u.outputUsage
+      existing.total += u.totalUsage
+      existing.cost += u.totalCost
+      existing.traces += u.countTraces
+      modelUsageMap.set(u.model, existing)
+    }
+  }
+  const totalInputTokens = [...modelUsageMap.values()].reduce(
+    (s, v) => s + v.input,
+    0,
+  )
+  const totalOutputTokens = [...modelUsageMap.values()].reduce(
+    (s, v) => s + v.output,
+    0,
+  )
+  const totalTokens = totalInputTokens + totalOutputTokens
+
+  // Per-request averages for projections
+  const avgCostPerRequest =
+    metricsTotalTraces > 0 ? metricsTotalCost / metricsTotalTraces : 0.009
+  const avgInputPerRequest =
+    metricsTotalTraces > 0 ? totalInputTokens / metricsTotalTraces : 2000
+  const avgOutputPerRequest =
+    metricsTotalTraces > 0 ? totalOutputTokens / metricsTotalTraces : 600
+
+  // Projection assumptions
+  const COMMANDS_PER_SESSION = 5
+  const SESSIONS_PER_MONTH = 10
+  const COMMANDS_PER_USER_PER_MONTH = COMMANDS_PER_SESSION * SESSIONS_PER_MONTH
+
+  const projectionTiers = [
+    { users: 100, infraNote: 'Free tier covers most infra' },
+    {
+      users: 1_000,
+      infraNote: 'Supabase Pro ($25) + Vercel Pro ($20)',
+    },
+    {
+      users: 10_000,
+      infraNote: 'Add caching & rate limiting',
+    },
+    {
+      users: 100_000,
+      infraNote: 'Prompt caching + model tiering critical',
+    },
+  ].map((tier) => {
+    const monthlyCommands = tier.users * COMMANDS_PER_USER_PER_MONTH
+    const llmCost = monthlyCommands * avgCostPerRequest
+    const infraCost =
+      tier.users <= 100
+        ? 0
+        : tier.users <= 1_000
+          ? 45
+          : tier.users <= 10_000
+            ? 100
+            : 200
+    return {
+      ...tier,
+      monthlyCommands,
+      llmCost,
+      infraCost,
+      totalCost: llmCost + infraCost,
+    }
+  })
+
+  const modelUsageRows = [...modelUsageMap.entries()]
+    .map(([model, usage]) => ({ model, ...usage }))
+    .sort((a, b) => b.cost - a.cost)
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-800">Analytics</h1>
@@ -329,6 +424,213 @@ export default async function AnalyticsPage() {
             </span>
           </div>
         ))}
+      </div>
+
+      {/* AI Cost Analysis — Development & Testing */}
+      <div className="mt-10 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-800">
+          AI Cost Analysis
+          <span className="ml-2 text-xs font-normal text-slate-400">
+            Development &amp; Testing
+          </span>
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Actual LLM spend tracked via Langfuse Daily Metrics API
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-lg border border-slate-100 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              LLM API Cost
+            </p>
+            <p className="mt-1 text-2xl font-bold text-slate-800">
+              {metricsTotalCost > 0
+                ? `$${metricsTotalCost.toFixed(2)}`
+                : 'N/A'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-100 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              API Calls
+            </p>
+            <p className="mt-1 text-2xl font-bold text-slate-800">
+              {metricsTotalTraces}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-100 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Input Tokens
+            </p>
+            <p className="mt-1 text-2xl font-bold text-slate-800">
+              {totalInputTokens > 0
+                ? totalInputTokens.toLocaleString()
+                : 'N/A'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-100 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Output Tokens
+            </p>
+            <p className="mt-1 text-2xl font-bold text-slate-800">
+              {totalOutputTokens > 0
+                ? totalOutputTokens.toLocaleString()
+                : 'N/A'}
+            </p>
+          </div>
+        </div>
+
+        {/* Cost per model */}
+        {modelUsageRows.length > 0 && (
+          <div className="mt-5 overflow-x-auto">
+            <h3 className="mb-2 text-sm font-semibold text-slate-600">
+              Cost by Model
+            </h3>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <th className="py-2 pr-4">Model</th>
+                  <th className="py-2 pr-4 text-right">Traces</th>
+                  <th className="py-2 pr-4 text-right">Input Tokens</th>
+                  <th className="py-2 pr-4 text-right">Output Tokens</th>
+                  <th className="py-2 text-right">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modelUsageRows.map((row) => (
+                  <tr
+                    key={row.model}
+                    className="border-b border-slate-50"
+                  >
+                    <td className="py-2 pr-4 font-medium text-slate-700">
+                      {row.model}
+                    </td>
+                    <td className="py-2 pr-4 text-right text-slate-600">
+                      {row.traces}
+                    </td>
+                    <td className="py-2 pr-4 text-right text-slate-600">
+                      {row.input.toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-4 text-right text-slate-600">
+                      {row.output.toLocaleString()}
+                    </td>
+                    <td className="py-2 text-right font-medium text-slate-700">
+                      ${row.cost.toFixed(4)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Other costs */}
+        <div className="mt-5 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="font-medium text-slate-700">Observability</p>
+            <p className="text-xs text-slate-500">Langfuse free tier</p>
+            <p className="mt-1 text-lg font-bold text-green-600">$0</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="font-medium text-slate-700">Hosting</p>
+            <p className="text-xs text-slate-500">Vercel hobby plan</p>
+            <p className="mt-1 text-lg font-bold text-green-600">$0</p>
+          </div>
+          <div className="rounded-lg bg-slate-50 p-3">
+            <p className="font-medium text-slate-700">Database</p>
+            <p className="text-xs text-slate-500">Supabase free tier</p>
+            <p className="mt-1 text-lg font-bold text-green-600">$0</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Production Cost Projections */}
+      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-800">
+          Production Cost Projections
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Monthly estimates based on actual per-request averages from Langfuse
+        </p>
+
+        {/* Assumptions */}
+        <div className="mt-4 rounded-lg bg-slate-50 p-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Assumptions
+          </h3>
+          <div className="mt-2 grid grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-600 sm:grid-cols-4">
+            <div>
+              <span className="text-slate-400">Commands/session:</span>{' '}
+              {COMMANDS_PER_SESSION}
+            </div>
+            <div>
+              <span className="text-slate-400">Sessions/user/month:</span>{' '}
+              {SESSIONS_PER_MONTH}
+            </div>
+            <div>
+              <span className="text-slate-400">Avg input tokens:</span>{' '}
+              {Math.round(avgInputPerRequest).toLocaleString()}
+            </div>
+            <div>
+              <span className="text-slate-400">Avg output tokens:</span>{' '}
+              {Math.round(avgOutputPerRequest).toLocaleString()}
+            </div>
+            <div>
+              <span className="text-slate-400">Avg cost/request:</span> $
+              {avgCostPerRequest.toFixed(4)}
+            </div>
+            <div>
+              <span className="text-slate-400">Total tokens tracked:</span>{' '}
+              {totalTokens.toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* Projections table */}
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-xs font-medium uppercase tracking-wide text-slate-500">
+                <th className="py-2 pr-4">Scale</th>
+                <th className="py-2 pr-4 text-right">Monthly Commands</th>
+                <th className="py-2 pr-4 text-right">LLM Cost</th>
+                <th className="py-2 pr-4 text-right">Infra Cost</th>
+                <th className="py-2 text-right">Total/Month</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projectionTiers.map((tier) => (
+                <tr
+                  key={tier.users}
+                  className="border-b border-slate-50"
+                >
+                  <td className="py-3 pr-4 font-medium text-slate-800">
+                    {tier.users.toLocaleString()} users
+                  </td>
+                  <td className="py-3 pr-4 text-right text-slate-700">
+                    {tier.monthlyCommands.toLocaleString()}
+                  </td>
+                  <td className="py-3 pr-4 text-right text-slate-700">
+                    ${tier.llmCost < 1 ? tier.llmCost.toFixed(2) : Math.round(tier.llmCost).toLocaleString()}
+                  </td>
+                  <td className="py-3 pr-4 text-right text-slate-700">
+                    ${tier.infraCost}
+                  </td>
+                  <td className="py-3 text-right font-bold text-slate-800">
+                    ${tier.totalCost < 1 ? tier.totalCost.toFixed(2) : `~${Math.round(tier.totalCost).toLocaleString()}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Notes */}
+        <p className="mt-3 text-xs text-slate-400">
+          Infrastructure: Supabase Pro ($25), Vercel Pro ($20), Langfuse
+          ($0-59), Railway ($5+). LLM cost dominates at scale — optimize via
+          prompt caching, model tiering (Haiku for simple tasks), and rate
+          limiting.
+        </p>
       </div>
 
       {/* Backend Comparison */}

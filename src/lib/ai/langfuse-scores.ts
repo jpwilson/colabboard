@@ -149,3 +149,47 @@ export async function fetchScores(options?: {
   const data = await res.json()
   return data.data ?? []
 }
+
+/**
+ * Daily metrics from Langfuse — aggregated cost, tokens, and trace counts per day.
+ */
+export interface DailyModelUsage {
+  model: string
+  inputUsage: number
+  outputUsage: number
+  totalUsage: number
+  countTraces: number
+  countObservations: number
+  totalCost: number
+}
+
+export interface DailyMetric {
+  date: string
+  countTraces: number
+  countObservations: number
+  totalCost: number
+  usage: DailyModelUsage[]
+}
+
+export async function fetchDailyMetrics(options?: {
+  traceName?: string
+  limit?: number
+}): Promise<DailyMetric[]> {
+  const auth = getAuthHeader()
+  if (!auth) return []
+
+  const params = new URLSearchParams()
+  if (options?.traceName) params.set('traceName', options.traceName)
+  if (options?.limit) params.set('limit', String(options.limit))
+
+  const res = await fetch(
+    `${LANGFUSE_BASE_URL}/api/public/metrics/daily?${params.toString()}`,
+    {
+      headers: { Authorization: auth },
+    },
+  ).catch(() => null)
+
+  if (!res?.ok) return []
+  const data = await res.json()
+  return data.data ?? []
+}
