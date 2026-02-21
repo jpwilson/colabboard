@@ -14,6 +14,11 @@ interface ProfileRow {
 export default async function UsersPage() {
   const supabase = await createClient()
 
+  // Get the currently signed-in user (for self-toggle protection)
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser()
+
   // Fetch all profiles (public table, accessible to superuser via RLS)
   const { data: profiles } = await supabase
     .from('profiles')
@@ -94,14 +99,11 @@ export default async function UsersPage() {
               <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 Email
               </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase">
-                User ID
-              </th>
               <th className="px-6 py-3 text-center text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 Boards Owned
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold tracking-wider text-slate-500 uppercase">
-                Memberships
+                Boards Joined
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 Superuser
@@ -134,11 +136,6 @@ export default async function UsersPage() {
                     )}
                   </span>
                 </td>
-                <td className="px-6 py-4">
-                  <span className="font-mono text-xs text-slate-400">
-                    {user.id.slice(0, 8)}...
-                  </span>
-                </td>
                 <td className="px-6 py-4 text-center">
                   <span className="inline-flex min-w-[2rem] items-center justify-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                     {user.boardsOwned}
@@ -153,17 +150,21 @@ export default async function UsersPage() {
                   <SuperuserToggle
                     userId={user.id}
                     initialValue={user.isSuperuser}
-                    disabled={user.email === PERMANENT_SUPERUSER_EMAIL}
+                    disabled={
+                      user.email === PERMANENT_SUPERUSER_EMAIL ||
+                      user.id === currentUser?.id
+                    }
                   />
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-500">
                   {user.lastSignInAt
-                    ? new Date(user.lastSignInAt).toLocaleDateString('en-US', {
+                    ? new Date(user.lastSignInAt).toLocaleString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
                         hour: 'numeric',
                         minute: '2-digit',
+                        timeZone: 'America/Chicago',
                       })
                     : 'Never'}
                 </td>
@@ -172,7 +173,7 @@ export default async function UsersPage() {
             {users.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={6}
                   className="px-6 py-12 text-center text-sm text-slate-400"
                 >
                   No users found

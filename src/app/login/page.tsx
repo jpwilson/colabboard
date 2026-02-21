@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { OrimLogo } from '@/components/ui/OrimLogo'
 import Link from 'next/link'
@@ -12,6 +13,24 @@ export default async function LoginPage() {
 
   if (user) {
     redirect('/dashboard')
+  }
+
+  // Check which grader accounts are superusers (for admin badge on login buttons)
+  const adminGraders: number[] = []
+  try {
+    const adminClient = createServiceRoleClient()
+    const { data: authUsersData } = await adminClient.auth.admin.listUsers()
+    const authUsers = authUsersData?.users ?? []
+    for (let i = 1; i <= 10; i++) {
+      const graderUser = authUsers.find(
+        (u) => u.email === `grader${i}@orim.test`,
+      )
+      if (graderUser?.user_metadata?.is_superuser === true) {
+        adminGraders.push(i)
+      }
+    }
+  } catch {
+    // If service role key is unavailable, just show no badges
   }
 
   return (
@@ -48,7 +67,7 @@ export default async function LoginPage() {
           {/* Left: Sign-in card */}
           <div className="w-full max-w-md lg:flex-shrink-0">
             <div className="overflow-hidden rounded-2xl border border-white/30 bg-white/50 p-8 shadow-2xl backdrop-blur-md sm:p-10">
-              <LoginForm />
+              <LoginForm adminGraders={adminGraders} />
             </div>
             <p className="mt-6 text-center text-sm text-slate-500">
               By signing in, you agree to our terms of service.

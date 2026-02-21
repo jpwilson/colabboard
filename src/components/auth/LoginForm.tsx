@@ -7,7 +7,11 @@ import { OrimLogo } from '@/components/ui/OrimLogo'
 type AuthMode = 'sign-in' | 'sign-up'
 type AuthMethod = 'magic-link' | 'password'
 
-export function LoginForm() {
+interface LoginFormProps {
+  adminGraders?: number[]
+}
+
+export function LoginForm({ adminGraders = [] }: LoginFormProps) {
   const [mode, setMode] = useState<AuthMode>('sign-in')
   const [method, setMethod] = useState<AuthMethod>('magic-link')
   const [email, setEmail] = useState('')
@@ -370,7 +374,14 @@ export function LoginForm() {
                       />
                     </svg>
                   ) : (
-                    `Grader ${n}`
+                    <span className="flex items-center gap-1.5">
+                      Grader {n}
+                      {adminGraders.includes(n) && (
+                        <span className="rounded bg-amber-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white">
+                          Admin
+                        </span>
+                      )}
+                    </span>
                   )}
                 </button>
               ))}
