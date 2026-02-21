@@ -43,9 +43,17 @@ def _get_supabase():
     return _supabase_client
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health():
-    return HealthResponse(status="ok", backend="docker", model=DEFAULT_MODEL)
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    has_key = bool(api_key and api_key.startswith("sk-ant-"))
+    return {
+        "status": "ok",
+        "backend": "docker",
+        "model": DEFAULT_MODEL,
+        "has_anthropic_key": has_key,
+        "key_prefix": api_key[:12] + "..." if api_key else "MISSING",
+    }
 
 
 @app.post("/chat")
