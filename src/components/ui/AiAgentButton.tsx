@@ -410,7 +410,7 @@ export function AiAgentPanel({
                 >
                   <div
                     className={`absolute top-0.5 h-4 w-[42px] rounded-full transition-all duration-200 ${
-                      verbose ? 'left-[44px] bg-amber-400' : 'left-0.5 bg-primary'
+                      verbose ? 'left-[44px] bg-primary' : 'left-0.5 bg-primary'
                     }`}
                   />
                   <span className={`relative z-10 flex-1 text-center transition-colors ${!verbose ? 'text-white' : 'text-slate-500'}`}>

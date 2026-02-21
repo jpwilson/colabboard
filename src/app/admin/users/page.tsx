@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 interface ProfileRow {
   id: string
   display_name: string | null
-  avatar_url: string | null
   email: string | null
   updated_at: string | null
 }
@@ -14,7 +13,7 @@ export default async function UsersPage() {
   // Fetch all profiles (public table, accessible to superuser via RLS)
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_url, email, updated_at')
+    .select('id, display_name, email, updated_at')
     .order('updated_at', { ascending: false })
 
   // Get board counts per user (as owner)
@@ -41,7 +40,6 @@ export default async function UsersPage() {
     id: p.id,
     displayName: p.display_name || 'Anonymous',
     email: p.email || null,
-    avatarUrl: p.avatar_url,
     updatedAt: p.updated_at,
     boardsOwned: ownerCountMap.get(p.id) || 0,
     boardsMember: memberCountMap.get(p.id) || 0,
