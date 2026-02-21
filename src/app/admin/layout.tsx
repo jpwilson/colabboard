@@ -40,16 +40,19 @@ export default async function AdminLayout({
             <Link href="/dashboard">
               <OrimLogo size="md" />
             </Link>
-            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-              Admin
+            <span className="text-sm font-medium text-slate-400">
+              / Admin
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <Link
               href="/dashboard"
-              className="text-sm text-slate-500 transition hover:text-slate-700"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-800"
             >
-              Back to Dashboard
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              </svg>
+              Dashboard
             </Link>
             <span className="text-sm text-slate-400">{user.email}</span>
           </div>
