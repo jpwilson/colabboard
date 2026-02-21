@@ -20,7 +20,7 @@ def create_agent(
     supabase_client: Any,
 ) -> AgentExecutor:
     """Create a LangChain AgentExecutor bound to a specific board."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_KEY", "")
     llm = ChatAnthropic(model=model_name, max_tokens=4096, api_key=api_key)
 
     system = build_system_prompt(board_id, verbose)
