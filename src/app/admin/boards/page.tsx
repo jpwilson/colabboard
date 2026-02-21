@@ -12,6 +12,33 @@ export default async function BoardsPage() {
     )
     .order('updated_at', { ascending: false })
 
+  // Fetch sharing details for all boards
+  const { data: allMembers } = await supabase
+    .from('board_members')
+    .select('board_id, user_id, role, invited_at')
+    .eq('status', 'accepted')
+
+  const memberUserIds = [...new Set((allMembers || []).map((m) => m.user_id))]
+  let memberProfiles: { id: string; display_name: string | null }[] = []
+  if (memberUserIds.length > 0) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', memberUserIds)
+    memberProfiles = data || []
+  }
+
+  const sharingMap = new Map<string, Array<{ name: string; role: string }>>()
+  for (const m of allMembers || []) {
+    const profile = memberProfiles.find((p) => p.id === m.user_id)
+    const existing = sharingMap.get(m.board_id) || []
+    existing.push({
+      name: profile?.display_name || 'Unknown',
+      role: m.role,
+    })
+    sharingMap.set(m.board_id, existing)
+  }
+
   const boardRows = (boards || []).map((b) => {
     const memberCount =
       b.board_members && Array.isArray(b.board_members)
@@ -39,6 +66,7 @@ export default async function BoardsPage() {
       objectCount,
       createdAt: b.created_at,
       updatedAt: b.updated_at,
+      sharedWith: (sharingMap.get(b.id) || []).filter((m) => m.role !== 'owner'),
     }
   })
 
@@ -64,6 +92,9 @@ export default async function BoardsPage() {
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 Objects
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                Shared With
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 Created
@@ -104,6 +135,26 @@ export default async function BoardsPage() {
                     {board.objectCount}
                   </span>
                 </td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-1">
+                    {board.sharedWith.length > 0 ? (
+                      board.sharedWith.slice(0, 3).map((member, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+                          title={member.role}
+                        >
+                          {member.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400">None</span>
+                    )}
+                    {board.sharedWith.length > 3 && (
+                      <span className="text-[10px] text-slate-400">+{board.sharedWith.length - 3} more</span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-6 py-4 text-sm text-slate-500">
                   {new Date(board.createdAt).toLocaleDateString('en-US', {
                     month: 'short',
@@ -131,7 +182,7 @@ export default async function BoardsPage() {
             {boardRows.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-6 py-12 text-center text-sm text-slate-400"
                 >
                   No boards found

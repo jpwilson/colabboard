@@ -4,6 +4,7 @@ interface ProfileRow {
   id: string
   display_name: string | null
   avatar_url: string | null
+  email: string | null
   updated_at: string | null
 }
 
@@ -13,7 +14,7 @@ export default async function UsersPage() {
   // Fetch all profiles (public table, accessible to superuser via RLS)
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, display_name, avatar_url, updated_at')
+    .select('id, display_name, avatar_url, email, updated_at')
     .order('updated_at', { ascending: false })
 
   // Get board counts per user (as owner)
@@ -39,6 +40,7 @@ export default async function UsersPage() {
   const users = ((profiles as ProfileRow[]) || []).map((p) => ({
     id: p.id,
     displayName: p.display_name || 'Anonymous',
+    email: p.email || null,
     avatarUrl: p.avatar_url,
     updatedAt: p.updated_at,
     boardsOwned: ownerCountMap.get(p.id) || 0,
@@ -58,6 +60,9 @@ export default async function UsersPage() {
             <tr className="border-b border-slate-100 bg-slate-50">
               <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 User
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                Email
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 User ID
@@ -90,6 +95,11 @@ export default async function UsersPage() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
+                  <span className="text-sm text-slate-600">
+                    {user.email || <span className="italic text-slate-400">No email</span>}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
                   <span className="font-mono text-xs text-slate-400">
                     {user.id.slice(0, 8)}...
                   </span>
@@ -118,7 +128,7 @@ export default async function UsersPage() {
             {users.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-6 py-12 text-center text-sm text-slate-400"
                 >
                   No users found

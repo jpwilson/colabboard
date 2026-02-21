@@ -8,6 +8,8 @@ import type { UIMessage } from 'ai'
 import type { CanvasObject } from '@/lib/board-sync'
 import { useDraggable } from '@/hooks/useDraggable'
 import { useIdleAnimation } from '@/hooks/useIdleAnimation'
+import { BoardFAQ } from '@/components/board/BoardFAQ'
+import { BoardTour } from '@/components/board/BoardTour'
 
 interface AiAgentPanelProps {
   boardId: string
@@ -52,6 +54,9 @@ export function AiAgentPanel({
   nextZIndex,
 }: AiAgentPanelProps) {
   const [open, setOpen] = useState(false)
+  const [hubOpen, setHubOpen] = useState(false)
+  const [faqOpen, setFaqOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [verbose, setVerbose] = useState(false)
   const [undoStack, setUndoStack] = useState<UndoGroup[]>([])
@@ -531,32 +536,85 @@ export function AiAgentPanel({
         </div>
       )}
 
-      {/* Floating toggle button — hidden when panel is open */}
+      {/* Floating toggle button with hub — hidden when chat panel is open */}
       {!open && (
-        <button
-          onClick={() => { setOpen(true); resetIdleTimer() }}
-          className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-[0_8px_30px_rgba(0,0,0,0.15),0_2px_8px_rgba(0,0,0,0.1)] transition-all hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(0,0,0,0.2),0_4px_12px_rgba(0,0,0,0.12)]"
-          title="Orim AI Agent"
-          style={{ perspective: '200px' }}
-        >
-          <Image
-            src="/AIBot1.png"
-            alt="Orim AI"
-            width={36}
-            height={36}
-            className="h-9 w-9"
-            style={{
-              animation: idleAnimation
-                ? idleAnimation
-                : errorMsg
-                  ? 'alienShake 0.3s ease-in-out 3'
-                  : isLoading
-                    ? 'alienDance 0.8s ease-in-out infinite'
-                    : 'alienFloat 2s ease-in-out infinite',
-            }}
-          />
-        </button>
+        <div className="fixed bottom-6 right-6 z-[9999]" data-tour-step="ai-hub">
+          {/* Hub icons (FAQ, Tour, Chat) — shown when hubOpen */}
+          {hubOpen && (
+            <>
+              {/* Click-outside catcher */}
+              <div className="fixed inset-0 z-[-1]" onClick={() => setHubOpen(false)} />
+
+              {/* FAQ button */}
+              <button
+                onClick={() => { setHubOpen(false); setFaqOpen(true) }}
+                className="absolute -top-16 -left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:bg-primary/10 hover:shadow-xl"
+                title="FAQ"
+                style={{ animation: 'fadeIn 0.15s ease-out' }}
+              >
+                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+
+              {/* Tour button */}
+              <button
+                onClick={() => { setHubOpen(false); setTourOpen(true) }}
+                className="absolute -top-14 -left-16 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:bg-primary/10 hover:shadow-xl"
+                title="Board Tour"
+                style={{ animation: 'fadeIn 0.15s ease-out 0.05s both' }}
+              >
+                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+              </button>
+
+              {/* Chat button */}
+              <button
+                onClick={() => { setHubOpen(false); setOpen(true); resetIdleTimer() }}
+                className="absolute -top-5 -left-16 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:bg-primary/10 hover:shadow-xl"
+                title="AI Chat"
+                style={{ animation: 'fadeIn 0.15s ease-out 0.1s both' }}
+              >
+                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </button>
+            </>
+          )}
+
+          {/* Main alien avatar button */}
+          <button
+            onClick={() => { setHubOpen(!hubOpen); resetIdleTimer() }}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-[0_8px_30px_rgba(0,0,0,0.15),0_2px_8px_rgba(0,0,0,0.1)] transition-all hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(0,0,0,0.2),0_4px_12px_rgba(0,0,0,0.12)]"
+            title="Orim AI Agent"
+            style={{ perspective: '200px' }}
+          >
+            <Image
+              src="/AIBot1.png"
+              alt="Orim AI"
+              width={36}
+              height={36}
+              className="h-9 w-9"
+              style={{
+                animation: idleAnimation
+                  ? idleAnimation
+                  : errorMsg
+                    ? 'alienShake 0.3s ease-in-out 3'
+                    : isLoading
+                      ? 'alienDance 0.8s ease-in-out infinite'
+                      : 'alienFloat 2s ease-in-out infinite',
+              }}
+            />
+          </button>
+        </div>
       )}
+
+      {/* FAQ Modal */}
+      {faqOpen && <BoardFAQ onClose={() => setFaqOpen(false)} />}
+
+      {/* Board Tour */}
+      {tourOpen && <BoardTour onClose={() => setTourOpen(false)} />}
     </>
   )
 }

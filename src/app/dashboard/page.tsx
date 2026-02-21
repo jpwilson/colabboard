@@ -6,6 +6,7 @@ import { NewBoardButton } from './NewBoardButton'
 import { BoardCard } from './BoardCard'
 import { InvitationCard } from './InvitationCard'
 import { OrimLogo } from '@/components/ui/OrimLogo'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
@@ -79,6 +80,40 @@ export default async function DashboardPage() {
   const ownedBoards = (boards || []).filter((b) => b.owner_id === user.id)
   const sharedBoards = (boards || []).filter((b) => b.owner_id !== user.id)
 
+  // Fetch sharing info for owned boards (who they're shared with)
+  const ownedBoardIds = ownedBoards.map((b) => b.id)
+  let sharingData: Array<{ board_id: string; user_id: string; invited_at: string }> = []
+  if (ownedBoardIds.length > 0) {
+    const { data } = await supabase
+      .from('board_members')
+      .select('board_id, user_id, invited_at')
+      .in('board_id', ownedBoardIds)
+      .eq('status', 'accepted')
+      .neq('user_id', user.id)
+    sharingData = data || []
+  }
+
+  const sharedUserIds = [...new Set(sharingData.map((s) => s.user_id))]
+  let sharedProfiles: { id: string; display_name: string | null }[] = []
+  if (sharedUserIds.length > 0) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', sharedUserIds)
+    sharedProfiles = data || []
+  }
+
+  const sharingMap = new Map<string, Array<{ name: string; date: string }>>()
+  for (const s of sharingData) {
+    const profile = sharedProfiles.find((p) => p.id === s.user_id)
+    const existing = sharingMap.get(s.board_id) || []
+    existing.push({
+      name: profile?.display_name || 'Anonymous',
+      date: s.invited_at,
+    })
+    sharingMap.set(s.board_id, existing)
+  }
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
       {/* Floating background shapes */}
@@ -105,6 +140,7 @@ export default async function DashboardPage() {
             <OrimLogo size="md" />
           </a>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             {isAdmin && (
               <Link
                 href="/admin"
@@ -172,6 +208,7 @@ export default async function DashboardPage() {
                   board={board}
                   memberCount={memberCount}
                   isOwner={true}
+                  sharedWith={sharingMap.get(board.id)}
                   renameAction={renameBoard}
                   deleteAction={deleteBoard}
                 />
