@@ -24,6 +24,11 @@ const TOUR_STEPS = [
     content: 'Draw freehand on the canvas. Click and drag to sketch, release to finish.',
   },
   {
+    target: '[data-tour-step="connector"]',
+    title: 'Connectors',
+    content: 'Draw lines between objects. Click a source object, then click a target to create an arrow connector.',
+  },
+  {
     target: '[data-tour-step="grid"]',
     title: 'Grid Toggle',
     content: 'Switch between no grid, dots, or gridlines. Click to cycle through options.',

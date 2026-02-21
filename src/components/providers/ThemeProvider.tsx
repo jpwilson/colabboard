@@ -11,7 +11,7 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'system',
+  theme: 'light',
   setTheme: () => {},
   resolvedTheme: 'light',
 })
@@ -40,7 +40,7 @@ function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'light'
   const stored = localStorage.getItem('orim-theme') as Theme | null
   if (stored && ['light', 'dark', 'system'].includes(stored)) return stored
-  return 'system'
+  return 'light'
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

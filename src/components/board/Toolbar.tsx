@@ -360,6 +360,7 @@ export function Toolbar({
 
       {/* Connector */}
       <button
+        data-tour-step="connector"
         onClick={() => onToolChange('connector')}
         className={toolBtnClass(tool === 'connector')}
         title="Connect objects"

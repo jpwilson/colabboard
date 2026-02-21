@@ -72,11 +72,11 @@ describe('buildSystemPrompt', () => {
     })
 
     it('instructs concise responses by default', () => {
-      expect(prompt).toContain('1-2 short sentences')
+      expect(prompt).toContain('1 sentence')
     })
 
     it('does not include verbose instructions', () => {
-      expect(prompt).not.toContain('Explain what you are about to do')
+      expect(prompt).not.toContain('short summary')
     })
   })
 
@@ -84,8 +84,8 @@ describe('buildSystemPrompt', () => {
     const prompt = buildSystemPrompt(boardId, true)
 
     it('includes verbose instructions', () => {
-      expect(prompt).toContain('Explain what you are about to do')
-      expect(prompt).toContain('bullet points')
+      expect(prompt).toContain('short summary')
+      expect(prompt).toContain('2-3 sentences')
     })
 
     it('does not include concise instructions', () => {
