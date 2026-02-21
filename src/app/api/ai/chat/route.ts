@@ -23,8 +23,9 @@ async function handler(request: Request) {
     messages?: UIMessage[]
     boardId?: string
     verbose?: boolean
+    domain?: string
   }
-  const { messages, boardId, verbose } = body
+  const { messages, boardId, verbose, domain } = body
 
   if (!boardId) {
     return NextResponse.json({ error: 'boardId is required' }, { status: 400 })
@@ -92,6 +93,7 @@ async function handler(request: Request) {
         boardId,
         backend,
         verbose: verbose ?? false,
+        domain: domain ?? 'general',
         messageCount: messages.length,
         commandType,
         userEmail: user.email,
@@ -105,6 +107,7 @@ async function handler(request: Request) {
     verbose: verbose ?? false,
     model,
     supabase,
+    domain,
   })
 }
 

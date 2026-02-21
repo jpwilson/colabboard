@@ -10,7 +10,7 @@ export class DockerAdapter implements AgentAdapter {
   readonly name = 'Docker (Python/LangChain)'
 
   async chat(request: AgentChatRequest): Promise<Response> {
-    const { messages, boardId, verbose, model } = request
+    const { messages, boardId, verbose, model, domain } = request
 
     const isHealthy = await this.healthCheck()
     if (!isHealthy) {
@@ -41,6 +41,7 @@ export class DockerAdapter implements AgentAdapter {
         board_id: boardId,
         verbose,
         model,
+        domain: domain ?? 'general',
       }),
     })
 

@@ -7,6 +7,7 @@ export interface AgentChatRequest {
   verbose: boolean
   model: string
   supabase: SupabaseClient
+  domain?: string
 }
 
 export interface AgentAdapter {

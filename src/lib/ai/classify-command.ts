@@ -1,6 +1,8 @@
 /**
  * Classifies a user message into a command category for Langfuse tagging.
  */
+import { getAllTemplateNames } from '@/lib/ai/template-registry'
+
 export type CommandType =
   | 'create'
   | 'template'
@@ -10,12 +12,17 @@ export type CommandType =
   | 'query'
   | 'ambiguous'
 
+// Build template regex dynamically from registry
+const templatePattern = getAllTemplateNames()
+  .map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '.?'))
+  .join('|')
+const templateRegex = new RegExp(`\\b(${templatePattern}|template|retro)\\b`, 'i')
+
 const patterns: Array<{ type: CommandType; regex: RegExp }> = [
   // Templates (check before create — "create a SWOT" is a template)
   {
     type: 'template',
-    regex:
-      /\b(swot|kanban|retrospective|retro|pros.?cons|brainstorm|flowchart|timeline|decision.?matrix|template)\b/i,
+    regex: templateRegex,
   },
   // Delete
   { type: 'delete', regex: /\b(delete|remove|clear|erase|get rid of)\b/i },

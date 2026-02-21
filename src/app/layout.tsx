@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Inter, Caveat, IBM_Plex_Mono, Nunito } from 'next/font/google'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
+import { CookieConsentBanner } from '@/components/ui/CookieConsentBanner'
 import './globals.css'
 
 const geistSans = Geist({
@@ -41,6 +42,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${caveat.variable} ${ibmPlexMono.variable} ${nunito.variable} antialiased`}>
         <ThemeProvider>
           {children}
+          <CookieConsentBanner />
         </ThemeProvider>
       </body>
     </html>

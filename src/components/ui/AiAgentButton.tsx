@@ -10,6 +10,7 @@ import { useDraggable } from '@/hooks/useDraggable'
 import { useIdleAnimation } from '@/hooks/useIdleAnimation'
 import { BoardFAQ } from '@/components/board/BoardFAQ'
 import { BoardTour } from '@/components/board/BoardTour'
+import { getAllDomains, getDomainPack } from '@/lib/ai/template-registry'
 
 interface AiAgentPanelProps {
   boardId: string
@@ -90,6 +91,19 @@ export function AiAgentPanel({
   const handleTextSizeChange = useCallback((size: 'sm' | 'md' | 'lg') => {
     setTextSize(size)
     try { localStorage.setItem('orim-chat-text-size', size) } catch { /* ignore */ }
+  }, [])
+
+  const [selectedDomain, setSelectedDomain] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'general'
+    try {
+      const stored = localStorage.getItem('orim-chat-domain')
+      if (stored) return stored
+    } catch { /* ignore */ }
+    return 'general'
+  })
+  const handleDomainChange = useCallback((domainId: string) => {
+    setSelectedDomain(domainId)
+    try { localStorage.setItem('orim-chat-domain', domainId) } catch { /* ignore */ }
   }, [])
 
   // Text size CSS classes
@@ -256,9 +270,9 @@ export function AiAgentPanel({
     () =>
       new DefaultChatTransport({
         api: '/api/ai/chat',
-        body: { boardId, verbose },
+        body: { boardId, verbose, domain: selectedDomain },
       }),
-    [boardId, verbose],
+    [boardId, verbose, selectedDomain],
   )
 
   const { messages, sendMessage, status } = useChat({
@@ -582,7 +596,7 @@ export function AiAgentPanel({
           </div>
 
           {/* Suggestions — always visible */}
-          <SuggestionPills onSelect={handleSuggestion} disabled={isLoading} pillTextClass={pillTextClass} />
+          <SuggestionPills onSelect={handleSuggestion} disabled={isLoading} pillTextClass={pillTextClass} selectedDomain={selectedDomain} onDomainChange={handleDomainChange} />
 
           {/* Input */}
           <form onSubmit={handleSubmit} className="border-t border-slate-100 px-3 py-2">
@@ -729,46 +743,6 @@ export function AiAgentPanel({
   )
 }
 
-const SUGGESTION_CATEGORIES = [
-  {
-    label: 'Create',
-    commands: [
-      { label: 'SWOT Analysis', prompt: 'Create a SWOT analysis template' },
-      { label: 'Kanban Board', prompt: 'Create a Kanban board with To Do, In Progress, and Done columns' },
-      { label: 'Retrospective', prompt: 'Create a retrospective with Went Well, To Improve, and Actions' },
-      { label: 'Mind Map', prompt: 'Create a mind map with a central topic and 6 branching ideas' },
-      { label: 'Flowchart', prompt: 'Create a flowchart with Start, Process, Decision, and End nodes' },
-      { label: 'Timeline', prompt: 'Create a horizontal timeline with 5 milestones' },
-      { label: 'Pros & Cons', prompt: 'Create a pros and cons template' },
-      { label: 'Decision Matrix', prompt: 'Create a 2x2 decision matrix with Impact vs Effort axes' },
-    ],
-  },
-  {
-    label: 'Edit',
-    commands: [
-      { label: 'Change colors', prompt: 'I want to change the color of some objects on the board' },
-      { label: 'Resize objects', prompt: 'I want to resize some objects on the board' },
-      { label: 'Move objects', prompt: 'I want to move some objects on the board' },
-      { label: 'Duplicate all', prompt: 'Duplicate all sticky notes and place copies next to the originals' },
-      { label: 'Update text', prompt: 'I want to update the text on a sticky note' },
-      { label: 'Add labels', prompt: 'Add a text label next to each shape on the board' },
-      { label: 'Delete all', prompt: 'Delete all objects on the board' },
-    ],
-  },
-  {
-    label: 'Layout',
-    commands: [
-      { label: 'Grid', prompt: 'Arrange all sticky notes in a neat grid' },
-      { label: 'Horizontal row', prompt: 'Line up all objects in a horizontal row' },
-      { label: 'Vertical column', prompt: 'Stack all objects in a vertical column' },
-      { label: 'Distribute evenly', prompt: 'Distribute all objects evenly with equal spacing' },
-      { label: 'Sort by color', prompt: 'Group and arrange objects by their color' },
-      { label: 'Compact', prompt: 'Move all objects closer together to reduce whitespace' },
-      { label: 'Summarize', prompt: 'Describe what is currently on the board' },
-    ],
-  },
-]
-
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   Create: (
     <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -791,24 +765,63 @@ function SuggestionPills({
   onSelect,
   disabled,
   pillTextClass,
+  selectedDomain,
+  onDomainChange,
 }: {
   onSelect: (prompt: string) => void
   disabled: boolean
   pillTextClass: string
+  selectedDomain: string
+  onDomainChange: (domainId: string) => void
 }) {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const domains = getAllDomains()
+  const domainPack = getDomainPack(selectedDomain)
 
-  // Derive the small label class from pill size
+  // Build suggestion categories from domain pack
+  const categories = useMemo(() => {
+    if (!domainPack) return []
+    return [
+      {
+        label: 'Create',
+        commands: domainPack.templates.map((t) => ({
+          label: t.name,
+          prompt: t.prompt,
+        })),
+      },
+      { label: 'Edit', commands: domainPack.editPrompts },
+      { label: 'Layout', commands: domainPack.layoutPrompts },
+    ]
+  }, [domainPack])
+
   const labelClass = pillTextClass === 'text-sm' ? 'text-xs' : pillTextClass === 'text-xs' ? 'text-[10px]' : 'text-[9px]'
 
   return (
     <div className="border-t border-slate-100 px-3 py-2">
+      {/* Domain selector */}
+      <div className="mb-2 flex gap-1 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        {domains.map((d) => (
+          <button
+            key={d.id}
+            onClick={() => { onDomainChange(d.id); setActiveCategory(null) }}
+            className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 ${pillTextClass} font-medium whitespace-nowrap transition-all ${
+              selectedDomain === d.id
+                ? 'bg-primary/20 text-primary-dark shadow-sm ring-1 ring-primary/30'
+                : 'text-slate-400 hover:bg-slate-100/80 hover:text-slate-600'
+            }`}
+          >
+            <span>{d.icon}</span>
+            {d.name}
+          </button>
+        ))}
+      </div>
+
       <p className={`font-nunito mb-1.5 ${labelClass} font-bold uppercase tracking-widest text-slate-400/80`}>
         Suggestions
       </p>
       {/* Category tabs */}
       <div className="mb-1.5 flex gap-1.5">
-        {SUGGESTION_CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <button
             key={cat.label}
             onClick={() =>
@@ -830,8 +843,8 @@ function SuggestionPills({
 
       {/* Command pills for active category */}
       {activeCategory && (
-        <div className="flex flex-wrap gap-1.5">
-          {SUGGESTION_CATEGORIES.find(
+        <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+          {categories.find(
             (c) => c.label === activeCategory,
           )?.commands.map((cmd) => (
             <button
