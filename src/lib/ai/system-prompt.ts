@@ -6,7 +6,9 @@ export function buildSystemPrompt(boardId: string, verbose?: boolean): string {
 - Explain what you are about to do and why before executing tools.
 - After executing, describe what was created or modified with details (positions, colors, sizes).
 - Use bullet points or short paragraphs. Be helpful and informative.
-- If the user asks for a template, explain the layout choice.`
+- If the user asks for a template, explain the layout choice.
+- After creating objects or templates, proactively ask a brief follow-up like: "Does that look right? I can adjust colors, text, positions, or undo if needed."
+- At the end of your FIRST response in a conversation, add: "Tip: if I'm talking too much, switch to Concise mode in the toggle above."`
     : `## Response Style
 - Keep responses to 1 sentence. Just confirm what you did. Do NOT list details, tables, or bullet points.
 - Example good response: "Done — created 4 SWOT quadrants."

@@ -18,6 +18,7 @@ interface AiAgentPanelProps {
   onUpdateObject: (id: string, updates: Partial<CanvasObject>) => void
   onDeleteObject: (id: string) => void
   nextZIndex: number
+  onFitToContent?: () => void
 }
 
 interface UndoEntry {
@@ -52,31 +53,78 @@ export function AiAgentPanel({
   onUpdateObject,
   onDeleteObject,
   nextZIndex,
+  onFitToContent,
 }: AiAgentPanelProps) {
   const [open, setOpen] = useState(false)
-  const [hubOpen, setHubOpen] = useState(false)
   const [faqOpen, setFaqOpen] = useState(false)
+  const [extrasOpen, setExtrasOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [verbose, setVerbose] = useState(false)
+  const [verbose, setVerbose] = useState(true)
   const [undoStack, setUndoStack] = useState<UndoGroup[]>([])
   const [redoStack, setRedoStack] = useState<UndoGroup[]>([])
+  const [panelSize, setPanelSize] = useState<{ width: number; height: number }>(() => {
+    if (typeof window === 'undefined') return { width: 320, height: 480 }
+    try {
+      const stored = localStorage.getItem('orim-chat-size')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (typeof parsed.width === 'number' && typeof parsed.height === 'number') {
+          return {
+            width: Math.max(280, Math.min(600, parsed.width)),
+            height: Math.max(300, Math.min(800, parsed.height)),
+          }
+        }
+      }
+    } catch { /* ignore */ }
+    return { width: 320, height: 480 }
+  })
   const scrollRef = useRef<HTMLDivElement>(null)
   const nextZRef = useRef(nextZIndex)
   const processedToolCalls = useRef(new Set<string>())
   const pendingUndoEntries = useRef<Map<string, UndoEntry[]>>(new Map())
   const objectsRef = useRef<CanvasObject[]>(objects)
 
+  const panelSizeRef = useRef(panelSize)
+  useEffect(() => { panelSizeRef.current = panelSize }, [panelSize])
+
+  const isResizing = useRef(false)
+  const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 })
+
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    isResizing.current = true
+    resizeStart.current = { x: e.clientX, y: e.clientY, w: panelSizeRef.current.width, h: panelSizeRef.current.height }
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return
+      const newW = Math.max(280, Math.min(600, resizeStart.current.w + (ev.clientX - resizeStart.current.x)))
+      const newH = Math.max(300, Math.min(800, resizeStart.current.h + (ev.clientY - resizeStart.current.y)))
+      setPanelSize({ width: newW, height: newH })
+    }
+
+    const handleMouseUp = () => {
+      isResizing.current = false
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      try { localStorage.setItem('orim-chat-size', JSON.stringify(panelSizeRef.current)) } catch { /* ignore */ }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [])
+
   const { idleAnimation, resetIdleTimer } = useIdleAnimation()
 
   const { position: chatPosition, dragHandleProps, isDragging } = useDraggable({
     storageKey: 'orim-chat-position',
     defaultPosition: {
-      x: typeof window !== 'undefined' ? window.innerWidth - 340 : 600,
-      y: typeof window !== 'undefined' ? window.innerHeight - 520 : 300,
+      x: typeof window !== 'undefined' ? window.innerWidth - (panelSize.width + 20) : 600,
+      y: typeof window !== 'undefined' ? window.innerHeight - (panelSize.height + 40) : 300,
     },
     clampToViewport: true,
-    elementSize: { width: 320, height: 480 },
+    elementSize: { width: panelSize.width, height: panelSize.height },
   })
 
   // Reset idle timer on panel open/close
@@ -208,6 +256,7 @@ export function AiAgentPanel({
   // Process tool results from message parts and build undo groups
   useEffect(() => {
     const processedMessageIds = new Set<string>()
+    let hasMutations = false
 
     for (const msg of messages) {
       if (msg.role !== 'assistant') continue
@@ -222,8 +271,17 @@ export function AiAgentPanel({
           typeof p.toolCallId === 'string' &&
           p.output !== undefined
         ) {
+          const result = p.output as ToolActionResult
+          // Track if this is a new mutation (not read, not already processed)
+          if (
+            result?.action &&
+            result.action !== 'read' &&
+            !processedToolCalls.current.has(p.toolCallId as string)
+          ) {
+            hasMutations = true
+          }
           processToolResult(
-            p.output as ToolActionResult,
+            result,
             p.toolCallId as string,
             msg.id,
           )
@@ -255,7 +313,12 @@ export function AiAgentPanel({
       }
       pendingUndoEntries.current.delete(messageId)
     }
-  }, [messages, processToolResult])
+
+    // Auto-center viewport after AI mutations
+    if (hasMutations && onFitToContent) {
+      setTimeout(() => onFitToContent(), 350)
+    }
+  }, [messages, processToolResult, onFitToContent])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -375,10 +438,12 @@ export function AiAgentPanel({
       {/* Expanded chat panel */}
       {open && (
         <div
-          className={`fixed z-[9999] flex w-80 flex-col rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-lg ${isDragging ? 'select-none' : ''}`}
+          className={`fixed z-[9999] flex flex-col rounded-2xl border border-white/20 bg-white/95 shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-xl ${isDragging ? 'select-none' : ''}`}
           style={{
             left: chatPosition.x,
             top: chatPosition.y,
+            width: panelSize.width,
+            height: panelSize.height,
             maxHeight: 'calc(100vh - 40px)',
           }}
         >
@@ -401,7 +466,7 @@ export function AiAgentPanel({
                   }}
                 />
               </div>
-              <h3 className="text-sm font-semibold text-slate-800">Orim AI</h3>
+              <h3 className="font-nunito text-sm font-bold tracking-tight text-slate-800">Orim AI</h3>
               {/* Concise / Verbose toggle pill */}
               <div className="group relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                 <div
@@ -471,10 +536,10 @@ export function AiAgentPanel({
           <div
             ref={scrollRef}
             className="flex-1 overflow-y-auto px-4 py-3"
-            style={{ maxHeight: '350px', minHeight: '150px' }}
+            style={{ minHeight: '100px' }}
           >
             {messages.length === 0 ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs leading-relaxed text-slate-500">
                 Ask me to create, arrange, or manipulate objects on your
                 board. Try one of the suggestions below.
               </p>
@@ -509,13 +574,13 @@ export function AiAgentPanel({
                 type="text"
                 placeholder="Ask Orim..."
                 disabled={isLoading}
-                className="flex-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-slate-50/80 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400/70 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
                 autoComplete="off"
               />
               <button
                 type="submit"
                 disabled={isLoading}
-                className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-50"
+                className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-dark hover:shadow disabled:opacity-50"
               >
                 <svg
                   className="h-4 w-4"
@@ -533,61 +598,66 @@ export function AiAgentPanel({
               </button>
             </div>
           </form>
+
+          {/* Resize handle */}
+          <div
+            onMouseDown={handleResizeMouseDown}
+            className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize rounded-bl-lg opacity-30 transition-opacity hover:opacity-70"
+          >
+            <svg className="h-4 w-4 text-slate-400" viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="12" cy="12" r="1.5" />
+              <circle cx="8" cy="12" r="1.5" />
+              <circle cx="12" cy="8" r="1.5" />
+            </svg>
+          </div>
+
+          {/* Extras tab — Tour & FAQ */}
+          <div className="border-t border-slate-100">
+            <button
+              onClick={() => setExtrasOpen(!extrasOpen)}
+              className="flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-medium text-amber-600 transition hover:bg-amber-50/50"
+            >
+              <svg
+                className={`h-3 w-3 transition-transform ${extrasOpen ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              </svg>
+              {extrasOpen ? 'Hide' : 'More'}
+            </button>
+            {extrasOpen && (
+              <div className="flex gap-2 px-3 pb-2" style={{ animation: 'fadeIn 0.15s ease-out' }}>
+                <button
+                  onClick={() => { setExtrasOpen(false); setTourOpen(true) }}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700 transition hover:bg-amber-100"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  </svg>
+                  Take a Tour
+                </button>
+                <button
+                  onClick={() => { setExtrasOpen(false); setFaqOpen(true) }}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700 transition hover:bg-amber-100"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  FAQ
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Floating toggle button with hub — hidden when chat panel is open */}
+      {/* Floating robot button — click opens chat directly */}
       {!open && (
         <div className="fixed bottom-6 right-6 z-[9999]" data-tour-step="ai-hub">
-          {/* Hub icons (FAQ, Tour, Chat) — shown when hubOpen */}
-          {hubOpen && (
-            <>
-              {/* Click-outside catcher */}
-              <div className="fixed inset-0 z-[-1]" onClick={() => setHubOpen(false)} />
-
-              {/* FAQ button */}
-              <button
-                onClick={() => { setHubOpen(false); setFaqOpen(true) }}
-                className="absolute -top-16 -left-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:bg-primary/10 hover:shadow-xl"
-                title="FAQ"
-                style={{ animation: 'fadeIn 0.15s ease-out' }}
-              >
-                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-
-              {/* Tour button */}
-              <button
-                onClick={() => { setHubOpen(false); setTourOpen(true) }}
-                className="absolute -top-14 -left-16 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:bg-primary/10 hover:shadow-xl"
-                title="Board Tour"
-                style={{ animation: 'fadeIn 0.15s ease-out 0.05s both' }}
-              >
-                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-              </button>
-
-              {/* Chat button */}
-              <button
-                onClick={() => { setHubOpen(false); setOpen(true); resetIdleTimer() }}
-                className="absolute -top-5 -left-16 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:bg-primary/10 hover:shadow-xl"
-                title="AI Chat"
-                style={{ animation: 'fadeIn 0.15s ease-out 0.1s both' }}
-              >
-                <svg className="h-5 w-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </button>
-            </>
-          )}
-
-          {/* Main alien avatar button */}
           <button
-            onClick={() => { setHubOpen(!hubOpen); resetIdleTimer() }}
+            onClick={() => { setOpen(true); resetIdleTimer() }}
             className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-[0_8px_30px_rgba(0,0,0,0.15),0_2px_8px_rgba(0,0,0,0.1)] transition-all hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(0,0,0,0.2),0_4px_12px_rgba(0,0,0,0.12)]"
-            title="Orim AI Agent"
+            title="Ask Orim AI"
             style={{ perspective: '200px' }}
           >
             <Image
@@ -688,7 +758,7 @@ function SuggestionPills({
 
   return (
     <div className="border-t border-slate-100 px-3 py-2">
-      <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+      <p className="font-nunito mb-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400/80">
         Suggestions
       </p>
       {/* Category tabs */}
@@ -701,10 +771,10 @@ function SuggestionPills({
                 activeCategory === cat.label ? null : cat.label,
               )
             }
-            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition-all ${
+            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-all ${
               activeCategory === cat.label
                 ? 'bg-primary text-white shadow-sm'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-700'
             }`}
           >
             {CATEGORY_ICONS[cat.label]}
@@ -725,7 +795,7 @@ function SuggestionPills({
                 if (!disabled) onSelect(cmd.prompt)
               }}
               disabled={disabled}
-              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-medium text-slate-600 transition-all duration-150 hover:border-primary/30 hover:bg-primary/5 hover:text-primary active:scale-95 disabled:opacity-50"
+              className="rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50"
             >
               {cmd.label}
             </button>
@@ -740,7 +810,7 @@ function MessageBubble({ message }: { message: UIMessage }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-xl rounded-br-sm bg-primary px-3 py-2 text-xs text-white">
+        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-xs leading-relaxed text-white">
           {message.parts.map((part, i) =>
             part.type === 'text' ? <span key={i}>{part.text}</span> : null,
           )}
@@ -774,7 +844,7 @@ function MessageBubble({ message }: { message: UIMessage }) {
         {textParts.map((text, i) => (
           <div
             key={i}
-            className="rounded-xl rounded-bl-sm bg-slate-100 px-3 py-2 text-xs text-slate-700"
+            className="rounded-2xl rounded-bl-sm bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-700"
           >
             {text}
           </div>

@@ -1300,6 +1300,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
               }
             }}
             nextZIndex={nextZIndex}
+            onFitToContent={handleZoomFit}
           />
         )}
       </div>
