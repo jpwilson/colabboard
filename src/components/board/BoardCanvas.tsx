@@ -207,6 +207,8 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       let shapeType: ShapeType
       if (tool === 'sticky_note') {
         shapeType = 'sticky_note'
+      } else if (tool === 'text') {
+        shapeType = 'text'
       } else {
         shapeType = shapeTool
       }
@@ -222,12 +224,18 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         fill: shapeType === 'sticky_note' ? stickyColor : defaults.fill,
         stroke: defaults.stroke,
         strokeWidth: defaults.strokeWidth,
-        text: shapeType === 'sticky_note' ? 'Double-click to edit' : undefined,
+        text: shapeType === 'sticky_note' ? 'Double-click to edit' : shapeType === 'text' ? 'Type here' : undefined,
+        fontSize: shapeType === 'text' ? 18 : undefined,
         z_index: nextZIndex,
         updated_at: now,
       }
 
       addObjectHelper(newObj)
+      if (shapeType === 'text') {
+        setSelectedId(newObj.id)
+        // Enter edit mode for the new text immediately
+        setTimeout(() => setEditingId(newObj.id), 100)
+      }
       setTool('select')
     },
     [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper],
@@ -395,7 +403,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const handleDoubleClick = useCallback(
     (id: string) => {
       const obj = objects.find((o) => o.id === id)
-      if (!obj || obj.type !== 'sticky_note') return
+      if (!obj || (obj.type !== 'sticky_note' && obj.type !== 'text')) return
       setEditingId(id)
 
       const stage = stageRef.current
@@ -414,14 +422,18 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       const textarea = document.createElement('textarea')
       stageContainer.parentNode?.appendChild(textarea)
 
+      const isText = obj.type === 'text'
+      const padding = isText ? 0 : 20
+      const baseFontSize = isText ? (obj.fontSize || 18) : 14
       textarea.value = obj.text || ''
       textarea.style.position = 'absolute'
       textarea.style.top = `${areaPosition.y}px`
       textarea.style.left = `${areaPosition.x}px`
-      textarea.style.width = `${(obj.width - 20) * stageScale}px`
-      textarea.style.height = `${(obj.height - 20) * stageScale}px`
-      textarea.style.fontSize = `${14 * stageScale}px`
+      textarea.style.width = `${(obj.width - padding) * stageScale}px`
+      textarea.style.height = `${(obj.height - padding) * stageScale}px`
+      textarea.style.fontSize = `${baseFontSize * stageScale}px`
       textarea.style.fontFamily = obj.fontFamily || 'sans-serif'
+      textarea.style.color = isText ? (obj.fill || '#1f2937') : '#1f2937'
       textarea.style.border = 'none'
       textarea.style.padding = '0'
       textarea.style.margin = '0'
@@ -432,6 +444,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       textarea.style.lineHeight = '1.4'
       textarea.style.zIndex = '1000'
       textarea.focus()
+      textarea.select()
 
       const handleBlur = () => {
         updateObjectHelper(id, { text: textarea.value })

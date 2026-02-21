@@ -15,6 +15,7 @@ export type ShapeType =
   | 'pentagon'
   | 'freedraw'
   | 'connector'
+  | 'text'
 
 export interface BoardObject {
   id: string
@@ -43,6 +44,7 @@ export interface CanvasObject {
   opacity?: number
   text?: string
   fontFamily?: string
+  fontSize?: number
   points?: number[]
   rotation?: number
   fromId?: string
@@ -60,6 +62,7 @@ export function canvasToData(obj: CanvasObject): Record<string, unknown> {
   if (obj.strokeWidth !== undefined) data.strokeWidth = obj.strokeWidth
   if (obj.opacity !== undefined) data.opacity = obj.opacity
   if (obj.fontFamily !== undefined) data.fontFamily = obj.fontFamily
+  if (obj.fontSize !== undefined) data.fontSize = obj.fontSize
   if (obj.points !== undefined) data.points = obj.points
   if (obj.rotation !== undefined && obj.rotation !== 0) data.rotation = obj.rotation
   if (obj.fromId !== undefined) data.fromId = obj.fromId
@@ -86,6 +89,7 @@ export function boardObjectToCanvas(obj: BoardObject): CanvasObject {
   if (data.strokeWidth !== undefined) result.strokeWidth = data.strokeWidth as number
   if (data.opacity !== undefined) result.opacity = data.opacity as number
   if (data.fontFamily !== undefined) result.fontFamily = data.fontFamily as string
+  if (data.fontSize !== undefined) result.fontSize = data.fontSize as number
   if (data.points !== undefined) result.points = data.points as number[]
   if (data.rotation !== undefined) result.rotation = data.rotation as number
   if (data.fromId !== undefined) result.fromId = data.fromId as string

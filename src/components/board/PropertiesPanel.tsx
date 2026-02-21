@@ -28,6 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
   line: 'line',
   freedraw: 'drawing',
   connector: 'connector',
+  text: 'text',
 }
 
 function getEditLabel(obj: CanvasObject): string {
@@ -89,6 +90,7 @@ export function PropertiesPanel({ selectedObject, onUpdate, objectScreenPosition
 
   const obj = selectedObject
   const isSticky = obj.type === 'sticky_note'
+  const isText = obj.type === 'text'
   const isFreedraw = obj.type === 'freedraw'
   const isLine = obj.type === 'line' || obj.type === 'arrow'
   const isConnector = obj.type === 'connector'
@@ -136,11 +138,11 @@ export function PropertiesPanel({ selectedObject, onUpdate, objectScreenPosition
           </div>
         )}
 
-        {/* Fill color — not for line/arrow/freedraw/connector */}
+        {/* Color: fill for shapes, text color for text objects — not for line/arrow/freedraw/connector */}
         {!isFreedraw && !isLine && !isConnector && (
           <div className="mb-3">
             <ColorPicker
-              label="Fill"
+              label={isText ? 'Text color' : 'Fill'}
               value={obj.fill}
               onChange={(color) => onUpdate(obj.id, { fill: color })}
             />
@@ -161,8 +163,8 @@ export function PropertiesPanel({ selectedObject, onUpdate, objectScreenPosition
           <span className="text-xs text-slate-400">{Math.round((obj.opacity ?? 1) * 100)}%</span>
         </div>
 
-        {/* Stroke color — not for sticky notes */}
-        {!isSticky && (
+        {/* Stroke color — not for sticky notes or text */}
+        {!isSticky && !isText && (
           <div className="mb-3">
             <ColorPicker
               label="Stroke"
@@ -172,8 +174,8 @@ export function PropertiesPanel({ selectedObject, onUpdate, objectScreenPosition
           </div>
         )}
 
-        {/* Stroke width — not for sticky notes */}
-        {!isSticky && (
+        {/* Stroke width — not for sticky notes or text */}
+        {!isSticky && !isText && (
           <div className="mb-3">
             <p className="text-xs font-medium text-slate-500">Stroke width</p>
             <div className="mt-1 flex items-center gap-2">
@@ -194,8 +196,8 @@ export function PropertiesPanel({ selectedObject, onUpdate, objectScreenPosition
           </div>
         )}
 
-        {/* Font — for sticky notes */}
-        {isSticky && (
+        {/* Font — for sticky notes and text */}
+        {(isSticky || isText) && (
           <div className="mb-3">
             <p className="text-xs font-medium text-slate-500">Font</p>
             <select
@@ -210,6 +212,28 @@ export function PropertiesPanel({ selectedObject, onUpdate, objectScreenPosition
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {/* Font size — for text elements */}
+        {isText && (
+          <div className="mb-3">
+            <p className="text-xs font-medium text-slate-500">Font size</p>
+            <div className="mt-1 flex items-center gap-2">
+              <button
+                onClick={() => onUpdate(obj.id, { fontSize: Math.max(8, (obj.fontSize ?? 18) - 2) })}
+                className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50"
+              >
+                -
+              </button>
+              <span className="min-w-[2rem] text-center text-xs text-slate-700">{obj.fontSize ?? 18}px</span>
+              <button
+                onClick={() => onUpdate(obj.id, { fontSize: Math.min(72, (obj.fontSize ?? 18) + 2) })}
+                className="rounded border border-slate-300 px-2 py-0.5 text-xs hover:bg-slate-50"
+              >
+                +
+              </button>
+            </div>
           </div>
         )}
 

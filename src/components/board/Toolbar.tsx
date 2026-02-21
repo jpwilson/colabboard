@@ -7,8 +7,8 @@ import { OrimLogo } from '@/components/ui/OrimLogo'
 
 const LazyShareModal = lazy(() => import('./ShareModal').then((m) => ({ default: m.ShareModal })))
 
-export type Tool = 'select' | 'sticky_note' | 'shape' | 'freedraw' | 'connector'
-export type ShapeTool = Exclude<ShapeType, 'sticky_note' | 'freedraw'>
+export type Tool = 'select' | 'sticky_note' | 'text' | 'shape' | 'freedraw' | 'connector'
+export type ShapeTool = Exclude<ShapeType, 'sticky_note' | 'freedraw' | 'text'>
 
 const SHAPE_ICONS: Record<string, React.ReactNode> = {
   rectangle: (
@@ -283,6 +283,15 @@ export function Toolbar({
         )}
       </div>
 
+      {/* Text */}
+      <button
+        onClick={() => onToolChange('text')}
+        className={toolBtnClass(tool === 'text')}
+        title="Add text"
+      >
+        <span className="inline text-sm font-bold">T</span>
+      </button>
+
       {/* Shapes dropdown */}
       <div className="relative" ref={shapeDropdownRef}>
         <div className="flex">
@@ -445,6 +454,7 @@ export function Toolbar({
       <span className="hidden text-xs text-slate-400 lg:inline">
         {tool === 'select' && 'Click to select, scroll to zoom'}
         {tool === 'sticky_note' && 'Click to place sticky note'}
+        {tool === 'text' && 'Click to place text'}
         {tool === 'shape' && `Click to place ${activeShapeOption.label.toLowerCase()}`}
         {tool === 'freedraw' && 'Click and drag to draw'}
         {tool === 'connector' && 'Click source, then target object'}
