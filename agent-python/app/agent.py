@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from langchain.agents import AgentExecutor, create_tool_calling_agent
@@ -19,7 +20,8 @@ def create_agent(
     supabase_client: Any,
 ) -> AgentExecutor:
     """Create a LangChain AgentExecutor bound to a specific board."""
-    llm = ChatAnthropic(model=model_name, max_tokens=4096)
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    llm = ChatAnthropic(model=model_name, max_tokens=4096, api_key=api_key)
 
     system = build_system_prompt(board_id, verbose)
     prompt = ChatPromptTemplate.from_messages([
