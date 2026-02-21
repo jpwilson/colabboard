@@ -448,15 +448,15 @@ export function AiAgentPanel({
           }}
         >
           {/* Header — drag handle */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3" {...dragHandleProps}>
+          <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/50 px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]" {...dragHandleProps}>
             <div className="flex items-center gap-2">
               <div style={{ perspective: '200px' }}>
                 <Image
                   src="/AIBot1.png"
                   alt="Orim AI"
-                  width={24}
-                  height={24}
-                  className="h-6 w-6"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8"
                   style={{
                     animation: idleAnimation
                       ? idleAnimation
@@ -467,27 +467,27 @@ export function AiAgentPanel({
                 />
               </div>
               <h3 className="font-nunito text-sm font-bold tracking-tight text-slate-800">Orim AI</h3>
-              {/* Concise / Verbose toggle pill */}
-              <div className="group relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            </div>
+            {/* Concise / Verbose toggle pill — centered */}
+            <div className="group relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+              <div
+                className="relative flex h-5 w-[92px] cursor-pointer items-center rounded-full bg-slate-200/70 text-[10px] font-semibold"
+                onClick={() => setVerbose((v) => !v)}
+              >
                 <div
-                  className="relative flex h-5 w-[88px] cursor-pointer items-center rounded-full bg-slate-100 text-[10px] font-medium"
-                  onClick={() => setVerbose((v) => !v)}
-                >
-                  <div
-                    className={`absolute top-0.5 h-4 w-[42px] rounded-full transition-all duration-200 ${
-                      verbose ? 'left-[44px] bg-primary' : 'left-0.5 bg-primary'
-                    }`}
-                  />
-                  <span className={`relative z-10 flex-1 text-center transition-colors ${!verbose ? 'text-white' : 'text-slate-500'}`}>
-                    Concise
-                  </span>
-                  <span className={`relative z-10 flex-1 text-center transition-colors ${verbose ? 'text-white' : 'text-slate-500'}`}>
-                    Verbose
-                  </span>
-                </div>
-                <div className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-[9px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  {verbose ? 'Detailed explanations' : 'Short, action-focused'}
-                </div>
+                  className={`absolute top-0.5 h-4 w-[44px] rounded-full transition-all duration-200 ${
+                    verbose ? 'left-[46px] bg-accent' : 'left-0.5 bg-accent'
+                  }`}
+                />
+                <span className={`relative z-10 flex-1 text-center transition-colors ${!verbose ? 'text-slate-800' : 'text-slate-500'}`}>
+                  Concise
+                </span>
+                <span className={`relative z-10 flex-1 text-center transition-colors ${verbose ? 'text-slate-800' : 'text-slate-500'}`}>
+                  Verbose
+                </span>
+              </div>
+              <div className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-[9px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                {verbose ? 'Detailed explanations' : 'Short, action-focused'}
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -580,7 +580,7 @@ export function AiAgentPanel({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-dark hover:shadow disabled:opacity-50"
+                className="rounded-xl bg-accent px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-accent-dark hover:shadow disabled:opacity-50"
               >
                 <svg
                   className="h-4 w-4"
@@ -612,10 +612,10 @@ export function AiAgentPanel({
           </div>
 
           {/* Extras tab — Tour & FAQ */}
-          <div className="border-t border-slate-100">
+          <div className="border-t border-accent/30 bg-accent/5">
             <button
               onClick={() => setExtrasOpen(!extrasOpen)}
-              className="flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-medium text-amber-600 transition hover:bg-amber-50/50"
+              className="flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-accent-dark transition hover:bg-accent/10"
             >
               <svg
                 className={`h-3 w-3 transition-transform ${extrasOpen ? 'rotate-180' : ''}`}
@@ -623,7 +623,7 @@ export function AiAgentPanel({
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
               </svg>
-              {extrasOpen ? 'Hide' : 'More'}
+              {extrasOpen ? 'HIDE' : 'MORE'}
             </button>
             {extrasOpen && (
               <div className="flex gap-2 px-3 pb-2" style={{ animation: 'fadeIn 0.15s ease-out' }}>
@@ -773,7 +773,7 @@ function SuggestionPills({
             }
             className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-all ${
               activeCategory === cat.label
-                ? 'bg-primary text-white shadow-sm'
+                ? 'bg-primary text-slate-800 shadow-sm'
                 : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-700'
             }`}
           >
@@ -810,7 +810,7 @@ function MessageBubble({ message }: { message: UIMessage }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-xs leading-relaxed text-white">
+        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary-dark px-3 py-2 text-xs leading-relaxed text-white">
           {message.parts.map((part, i) =>
             part.type === 'text' ? <span key={i}>{part.text}</span> : null,
           )}

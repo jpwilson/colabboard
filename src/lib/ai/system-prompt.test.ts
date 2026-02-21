@@ -72,7 +72,7 @@ describe('buildSystemPrompt', () => {
     })
 
     it('instructs concise responses by default', () => {
-      expect(prompt).toContain('1 sentence')
+      expect(prompt).toContain('1-2 short sentences')
     })
 
     it('does not include verbose instructions', () => {

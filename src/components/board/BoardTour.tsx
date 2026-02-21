@@ -186,7 +186,7 @@ export function BoardTour({ onClose }: BoardTourProps) {
                 if (isLast) onClose()
                 else setStep(step + 1)
               }}
-              className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-white transition hover:bg-primary-dark"
+              className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-slate-800 transition hover:bg-primary-dark"
             >
               {isLast ? 'Done' : 'Next'}
             </button>

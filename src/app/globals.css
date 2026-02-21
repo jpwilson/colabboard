@@ -3,9 +3,9 @@
 :root {
   --background: #f0f4f8;
   --foreground: #1a2b3c;
-  --primary: #0096ff;
-  --primary-light: #89cffd;
-  --primary-dark: #0070cc;
+  --primary: #d4a017;
+  --primary-light: #f5dfa0;
+  --primary-dark: #b8860b;
   --accent: #ffc107;
   --accent-dark: #e6a800;
   --teal: #66ffcc;
@@ -32,9 +32,9 @@
 [data-theme="dark"] {
   --background: #0f172a;
   --foreground: #e2e8f0;
-  --primary: #38bdf8;
-  --primary-light: #0c4a6e;
-  --primary-dark: #7dd3fc;
+  --primary: #e6b422;
+  --primary-light: #4a3c10;
+  --primary-dark: #f5d060;
   --accent: #fbbf24;
   --accent-dark: #fcd34d;
   --teal: #2dd4bf;

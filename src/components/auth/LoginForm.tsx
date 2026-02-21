@@ -221,7 +221,7 @@ export function LoginForm({ adminGraders = [] }: LoginFormProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl disabled:opacity-50 disabled:hover:translate-y-0"
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-slate-800 shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl disabled:opacity-50 disabled:hover:translate-y-0"
           >
             {loading ? 'Sending...' : 'Send magic link'}
           </button>
@@ -289,7 +289,7 @@ export function LoginForm({ adminGraders = [] }: LoginFormProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl disabled:opacity-50 disabled:hover:translate-y-0"
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-slate-800 shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl disabled:opacity-50 disabled:hover:translate-y-0"
           >
             {loading ? 'Loading...' : mode === 'sign-in' ? 'Sign in' : 'Sign up'}
           </button>

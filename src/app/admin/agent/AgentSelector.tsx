@@ -201,7 +201,7 @@ export function AgentSelector({
         <button
           onClick={handleSave}
           disabled={saving || !hasChanges}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-dark disabled:opacity-50"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-slate-800 transition hover:bg-primary-dark disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Configuration'}
         </button>

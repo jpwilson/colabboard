@@ -39,7 +39,7 @@ export default async function JoinBoardPage({ params }: JoinPageProps) {
           <p className="mt-2 text-sm text-slate-500">This board may have been deleted.</p>
           <a
             href="/dashboard"
-            className="mt-6 inline-block rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl"
+            className="mt-6 inline-block rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:shadow-xl"
           >
             Go to dashboard
           </a>
@@ -146,7 +146,7 @@ export default async function JoinBoardPage({ params }: JoinPageProps) {
               <form action={boundAccept} className="flex-1">
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:shadow-xl"
+                  className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:shadow-xl"
                 >
                   Accept & Join
                 </button>

@@ -158,7 +158,7 @@ export default async function LoginPage() {
                       <svg className="h-3 w-3 -rotate-12 text-primary" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M5.65 5.65l3.57 12.5 2.46-4.91 4.91-2.46L5.65 5.65z" />
                       </svg>
-                      <span className="ml-2 -mt-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[7px] font-medium text-white whitespace-nowrap">Alice</span>
+                      <span className="ml-2 -mt-0.5 rounded-full bg-primary px-1.5 py-0.5 text-[7px] font-medium text-slate-800 whitespace-nowrap">Alice</span>
                     </div>
                     <div className="absolute animate-[cursorBob_5s_ease-in-out_1s_infinite]" style={{ left: '20%', top: '55%' }}>
                       <svg className="h-3 w-3 -rotate-12 text-teal" viewBox="0 0 24 24" fill="currentColor">

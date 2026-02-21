@@ -58,7 +58,7 @@ function FeatureCard({
         transitionDelay: `${delay}ms`,
       }}
     >
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-slate-800">
         {icon}
       </div>
       <h3 className="mb-2 text-lg font-semibold text-slate-800">{title}</h3>
@@ -79,7 +79,7 @@ function StepCard({ step, title, desc, delay }: { step: string; title: string; d
         transitionDelay: `${delay}ms`,
       }}
     >
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-xl font-bold text-white shadow-lg shadow-primary/25">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-xl font-bold text-slate-800 shadow-lg shadow-primary/25">
         {step}
       </div>
       <h3 className="mb-2 text-lg font-semibold text-slate-800">{title}</h3>
@@ -125,7 +125,7 @@ function PricingCard({
       }}
     >
       {highlighted && (
-        <div className="absolute -right-8 top-5 rotate-45 bg-primary px-10 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md">
+        <div className="absolute -right-8 top-5 rotate-45 bg-primary px-10 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-800 shadow-md">
           Popular
         </div>
       )}
@@ -153,7 +153,7 @@ function PricingCard({
         href={ctaHref}
         className={`block w-full rounded-xl px-4 py-3 text-center text-sm font-semibold transition-all hover:-translate-y-0.5 ${
           highlighted
-            ? 'bg-primary text-white shadow-lg shadow-primary/25 hover:bg-primary-dark hover:shadow-xl'
+            ? 'bg-primary text-slate-800 shadow-lg shadow-primary/25 hover:bg-primary-dark hover:shadow-xl'
             : 'border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 hover:shadow-md'
         }`}
       >
@@ -187,7 +187,7 @@ export function LandingPage() {
             </Link>
             <Link
               href="/login"
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-primary-dark hover:shadow-md"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-primary-dark hover:shadow-md"
             >
               Get started
             </Link>
@@ -222,7 +222,7 @@ export function LandingPage() {
           >
             <Link
               href="/login"
-              className="group relative inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/30"
+              className="group relative inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-slate-800 shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/30"
             >
               Start collaborating
               <svg className="h-5 w-5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -269,7 +269,7 @@ export function LandingPage() {
                     <svg className="h-4 w-4 -rotate-12 text-primary" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M5.65 5.65l3.57 12.5 2.46-4.91 4.91-2.46L5.65 5.65z" />
                     </svg>
-                    <span className="ml-3 -mt-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-white whitespace-nowrap">
+                    <span className="ml-3 -mt-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-slate-800 whitespace-nowrap">
                       Alice
                     </span>
                   </div>
@@ -531,7 +531,7 @@ export function LandingPage() {
           </p>
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/30"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-base font-semibold text-slate-800 shadow-lg shadow-primary/25 transition-all hover:-translate-y-0.5 hover:bg-primary-dark hover:shadow-xl hover:shadow-primary/30"
           >
             Get started free
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

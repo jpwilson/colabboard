@@ -182,7 +182,7 @@ export function ShareModal({ boardId, boardSlug, isOwner, onClose }: ShareModalP
             <button
               type="submit"
               disabled={inviting || !inviteEmail.trim()}
-              className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
+              className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-md transition hover:shadow-lg disabled:opacity-50"
             >
               {inviting ? 'Sending...' : 'Send Invitation'}
             </button>

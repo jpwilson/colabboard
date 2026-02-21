@@ -67,7 +67,7 @@ export function InvitationCard({
         <button
           onClick={handleAccept}
           disabled={loading !== null}
-          className="flex-1 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white shadow-md transition hover:shadow-lg disabled:opacity-50"
+          className="flex-1 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-slate-800 shadow-md transition hover:shadow-lg disabled:opacity-50"
         >
           {loading === 'accept' ? 'Accepting...' : 'Accept'}
         </button>
