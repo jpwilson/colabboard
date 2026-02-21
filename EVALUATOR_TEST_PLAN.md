@@ -3,7 +3,7 @@
 Comprehensive evidence document mapping every G4 evaluation requirement to proof of compliance.
 
 **Last updated:** 2026-02-20
-**Test command:** `npm run test:run` (90 unit tests) · `npm run test:e2e` (7 E2E tests) · `npm run test:bench:run` (9 benchmarks)
+**Test command:** `npm run test:run` (94 unit tests) · `npm run test:e2e` (7 E2E tests) · `npm run test:bench:run` (9 benchmarks)
 **CI:** 4 jobs — Lint & Typecheck, Unit Tests, Performance Benchmarks, E2E Tests (all green on main)
 
 ---
@@ -16,10 +16,10 @@ Comprehensive evidence document mapping every G4 evaluation requirement to proof
 | Sticky notes (create, edit, drag, resize) | Pass | Toolbar "Note" button, 24-color palette, double-click to edit text, Transformer resize. Tests: `Toolbar.test.tsx` (9 tests), `PropertiesPanel.test.tsx` (9 tests), `shape-defaults.test.ts` (8 tests) |
 | Shapes (rectangle, circle, ellipse, triangle, diamond, star, hexagon, pentagon, arrow, line, rounded rectangle) | Pass | 11 shape types in dropdown. Tests: `Toolbar.test.tsx` > "shows all 11 shape options" |
 | Connectors | Pass | Tool: connector mode, snap-to-object endpoints, 4 arrow styles. Tests: `PropertiesPanel.test.tsx` > "shows arrow style buttons for connectors only" |
-| Text elements (standalone) | **In Progress** | Branch: `feat/text-elements` — adds 'text' ShapeType, Toolbar button, double-click edit |
+| Text elements (standalone) | Pass | Toolbar "T" button, double-click edit, font size +/- controls, AI `createText` tool. Tests: `tools.test.ts` > createText, `shape-defaults.test.ts` > text defaults. PR #17 merged |
 | Transforms (move, resize, rotate) | Pass | Konva Transformer on selected objects. Rotation enabled. Manual: select object → drag handles |
 | Selection: single select | Pass | Click object to select, Transformer attaches. Deselect by clicking empty area |
-| Selection: multi-select | **In Progress** | Branch: `feat/multi-select` — shift-click toggle, marquee drag, group operations |
+| Selection: multi-select | Pass | Shift-click toggle, Shift+drag marquee selection, group drag, bulk delete/copy/paste/duplicate, Cmd+A select all. PR #15 merged |
 | Operations: delete | Pass | Delete/Backspace key, toolbar trash button. Tests: `Toolbar.test.tsx` > "shows and handles delete button" |
 | Operations: duplicate | Pass | Cmd/Ctrl+D duplicates selected object with +20px offset |
 | Operations: copy/paste | Pass | Cmd/Ctrl+C copies, Cmd/Ctrl+V pastes with offset |
@@ -36,7 +36,7 @@ Comprehensive evidence document mapping every G4 evaluation requirement to proof
 | Object sync | Pass | Three-layer: Broadcast (instant) + Postgres (persist) + Postgres Changes (catch-up). Tests: `board-sync.test.ts` (20 tests) |
 | Presence indicators | Pass | PresenceIndicator shows online users with initials + color. Tests: `PresenceIndicator.test.tsx` (3 tests) |
 | Conflict resolution | Pass | LWW via `updated_at` timestamps. Tests: `board-sync.test.ts` > "LWW" tests |
-| Resilience (disconnect/reconnect) | **In Progress** | Branch: `feat/reconnect-resilience` — connection status monitoring, auto re-fetch, UI indicator |
+| Resilience (disconnect/reconnect) | Pass | ConnectionIndicator component (yellow "Reconnecting", red "Connection lost", green "Back online" flash), auto re-fetch on reconnect, navigator.onLine detection. Tests: `ConnectionIndicator.test.tsx` (4 tests). PR #16 merged |
 | State persistence | Pass | All objects persisted to Supabase Postgres. Refresh page → objects reload |
 
 ---
@@ -72,15 +72,15 @@ Comprehensive evidence document mapping every G4 evaluation requirement to proof
 **Automated:** `sync.bench.ts` — 5 benchmarks measuring sync throughput
 
 ### Scenario 4 — Network Resilience
-**Status:** **In Progress**
+**Status:** Pass
 **Steps:**
 1. Open board in Chrome
 2. DevTools → Network → throttle to Slow 3G
 3. Create objects — they appear with delay but persist
 4. DevTools → Network → set to Offline
-5. Re-enable network
-6. Objects recover via Postgres Changes catch-up
-**Note:** Basic catch-up works via Postgres Changes channel. `feat/reconnect-resilience` adds explicit connection monitoring, re-fetch, and UI indicator.
+5. Red "Connection lost" banner appears after 5 seconds
+6. Re-enable network → green "Back online" flash, objects recover via re-fetch + Postgres Changes catch-up
+**Implementation:** ConnectionIndicator monitors Supabase channel status + navigator.onLine. On reconnect, `useBoard` re-fetches all objects to catch missed broadcasts. `usePresence` re-tracks presence. Tests: `ConnectionIndicator.test.tsx` (4 tests)
 
 ### Scenario 5 — Scale (5+ Concurrent Users)
 **Status:** Pass
@@ -180,11 +180,11 @@ Comprehensive evidence document mapping every G4 evaluation requirement to proof
 
 | Category | Count | Command |
 |----------|-------|---------|
-| Unit & integration tests | 90 | `npm run test:run` |
+| Unit & integration tests | 94 | `npm run test:run` |
 | E2E tests | 7 | `npm run test:e2e` |
 | Performance benchmarks | 9 | `npm run test:bench:run` |
 | Agent evals | 9 | `npx tsx src/lib/ai/evals/run-evals.ts` |
-| **Total automated** | **115** | |
+| **Total automated** | **119** | |
 
 ### Test Files
 | File | Tests |
@@ -199,14 +199,17 @@ Comprehensive evidence document mapping every G4 evaluation requirement to proof
 | `src/components/auth/LoginForm.test.tsx` | 5 |
 | `src/hooks/useThrottle.test.ts` | 3 |
 | `src/components/board/PresenceIndicator.test.tsx` | 3 |
+| `src/components/board/ConnectionIndicator.test.tsx` | 4 |
 | `e2e/home.spec.ts` | 7 |
 
 ---
 
-## Gaps Being Addressed
+## Recently Closed Gaps
 
-| Gap | Branch | PR |
-|-----|--------|-----|
-| Multi-select (shift-click + marquee) | `feat/multi-select` | Pending |
-| Disconnect/reconnect resilience | `feat/reconnect-resilience` | Pending |
-| Standalone text elements | `feat/text-elements` | Pending |
+| Gap | PR | Status |
+|-----|-----|--------|
+| Multi-select (shift-click + marquee) | #15 | Merged ✓ |
+| Disconnect/reconnect resilience | #16 | Merged ✓ |
+| Standalone text elements | #17 | Merged ✓ |
+
+All identified G4 evaluation gaps have been addressed. No remaining gaps.
