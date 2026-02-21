@@ -274,6 +274,34 @@ export const ShapeRenderer = memo(function ShapeRenderer({
         </Group>
       )
 
+    case 'text':
+      return (
+        <Group
+          {...commonGroupProps}
+          onDblClick={() => onDoubleClick(obj.id)}
+          onDblTap={() => onDoubleClick(obj.id)}
+        >
+          {/* Invisible hit rect for draggability */}
+          <Rect
+            width={obj.width}
+            height={obj.height}
+            fill="transparent"
+            listening={true}
+          />
+          <Text
+            id={`text-${obj.id}`}
+            width={obj.width}
+            height={obj.height}
+            text={isEditing ? '' : (obj.text || '')}
+            fontSize={obj.fontSize || 18}
+            fontFamily={obj.fontFamily || 'sans-serif'}
+            fill={fill || '#1f2937'}
+            opacity={opacity}
+            lineHeight={1.4}
+          />
+        </Group>
+      )
+
     case 'connector': {
       const style = obj.connectorStyle || 'arrow-end'
       const pts = obj.points || []

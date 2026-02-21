@@ -191,6 +191,40 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
     }),
 
+    createText: tool({
+      description:
+        'Create a standalone text element on the board. Unlike sticky notes, text has no background — just text directly on the canvas. Use for labels, headings, annotations, or any text that should appear without a colored background.',
+      inputSchema: z.object({
+        text: z.string().describe('The text content'),
+        x: z.number().optional().describe('X position (default: 100)'),
+        y: z.number().optional().describe('Y position (default: 100)'),
+        fontSize: z.number().optional().describe('Font size in pixels (default: 18)'),
+        color: z.string().optional().describe('Text color hex (default: #1f2937, dark gray)'),
+        width: z.number().optional().describe('Text box width in pixels (default: 200)'),
+        fontFamily: z.string().optional().describe('Font family (default: sans-serif)'),
+      }),
+      execute: async ({ text, x, y, fontSize, color, width, fontFamily }) => {
+        const defaults = SHAPE_DEFAULTS.text
+        return {
+          action: 'create' as const,
+          object: {
+            id: crypto.randomUUID(),
+            type: 'text' as const,
+            x: x ?? 100,
+            y: y ?? 100,
+            width: width ?? defaults.width,
+            height: defaults.height,
+            fill: color ?? defaults.fill,
+            text,
+            fontSize: fontSize ?? 18,
+            fontFamily: fontFamily ?? 'sans-serif',
+            z_index: 0,
+            updated_at: new Date().toISOString(),
+          },
+        }
+      },
+    }),
+
     createFreedraw: tool({
       description:
         'Create a freehand drawing on the board. Provide a flat array of [x1, y1, x2, y2, ...] coordinates in absolute board space. The points will be normalized to the bounding box automatically. Use this to draw artistic shapes, sketches, underlines, circles, arrows, wavy lines, decorative elements, or any freeform path. Generate smooth curves by using many closely-spaced points (e.g., 20-50+ points for a curve). For a circle, use sin/cos to generate points around the circumference.',

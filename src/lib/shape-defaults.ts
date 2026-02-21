@@ -23,6 +23,7 @@ export const SHAPE_DEFAULTS: Record<ShapeType, ShapeDefault> = {
   pentagon: { width: 110, height: 100, fill: '#fbcfe8', stroke: '#ec4899', strokeWidth: 1 },
   freedraw: { width: 0, height: 0, fill: 'transparent', stroke: '#1f2937', strokeWidth: 3 },
   connector: { width: 0, height: 0, fill: 'transparent', stroke: '#1f2937', strokeWidth: 2 },
+  text: { width: 200, height: 40, fill: '#1f2937' },
 }
 
 export const STICKY_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8', '#fde68a', '#c4b5fd', '#fed7aa', '#fecaca']
