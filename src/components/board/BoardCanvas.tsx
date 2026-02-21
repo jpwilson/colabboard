@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Stage, Layer, Rect, Circle, Line, Arrow, Transformer } from 'react-konva'
+import { Stage, Layer, Rect as KonvaRect, Circle, Line, Arrow, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { usePresence } from '@/hooks/usePresence'
 import { useBoard } from '@/hooks/useBoard'
@@ -42,7 +42,7 @@ interface BoardCanvasProps {
 
 export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, userName }: BoardCanvasProps) {
   const [localObjects, setLocalObjects] = useState<CanvasObject[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [tool, setTool] = useState<Tool>('select')
   const [shapeTool, setShapeTool] = useState<ShapeTool>('rectangle')
   const [stickyColor, setStickyColor] = useState(STICKY_COLORS[0])
@@ -68,12 +68,20 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     height: typeof window !== 'undefined' ? window.innerHeight - 48 : 800,
   })
 
+  // Marquee (drag-to-select) state
+  const [selectionRect, setSelectionRect] = useState<{ startX: number; startY: number; x: number; y: number; width: number; height: number } | null>(null)
+  const marqueeRef = useRef(false)
+
+  // Group drag refs
+  const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map())
+
   const stageRef = useRef<Konva.Stage>(null)
   const transformerRef = useRef<Konva.Transformer>(null)
   const hasInitialFit = useRef(false)
-  const clipboardRef = useRef<CanvasObject | null>(null)
+  const clipboardRef = useRef<CanvasObject[]>([])
   const objectsRef2 = useRef<CanvasObject[]>([])
   const nextZIndexRef = useRef(0)
+  const selectedIdsRef = useRef<string[]>([])
 
   useEffect(() => {
     function handleResize() {
@@ -105,9 +113,10 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
   const objects = syncEnabled ? syncObjects : localObjects
   const nextZIndex = objects.length > 0 ? Math.max(...objects.map((o) => o.z_index)) + 1 : 0
-  const selectedObject = objects.find((o) => o.id === selectedId) || null
+  const selectedObject = selectedIds.length === 1 ? (objects.find((o) => o.id === selectedIds[0]) || null) : null
   objectsRef2.current = objects
   nextZIndexRef.current = nextZIndex
+  selectedIdsRef.current = selectedIds
 
   // Convert selected object's screen bounding box for PropertiesPanel positioning
   const selectedObjectScreenPos = useMemo(() => {
@@ -189,16 +198,19 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
       if (e.target !== e.target.getStage()) return
       if (tool === 'select') {
-        setSelectedId(null)
+        // Only deselect if not shift-clicking (shift preserves selection)
+        const isShift = 'shiftKey' in e.evt && e.evt.shiftKey
+        if (!isShift) {
+          setSelectedIds([])
+        }
         return
       }
       if (tool === 'connector') {
-        // Clicking empty stage cancels connector creation
         setConnectorSource(null)
         setConnectorPreview(null)
         return
       }
-      if (tool === 'freedraw') return // handled by mousedown/up
+      if (tool === 'freedraw') return
 
       const pos = getCanvasPos(e)
       if (!pos) return
@@ -233,9 +245,20 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper],
   )
 
-  // Freedraw handlers
+  // Freedraw + marquee handlers
   const handleMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
+      // Marquee selection: shift+drag on empty canvas in select mode
+      if (tool === 'select' && e.target === e.target.getStage() && e.evt.shiftKey) {
+        const pos = getCanvasPos(e)
+        if (!pos) return
+        marqueeRef.current = true
+        setSelectionRect({ startX: pos.x, startY: pos.y, x: pos.x, y: pos.y, width: 0, height: 0 })
+        // Stop stage drag so marquee works
+        e.target.getStage()?.stopDrag()
+        return
+      }
+
       if (tool !== 'freedraw') return
       if (e.target !== e.target.getStage()) return
 
@@ -255,6 +278,19 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       if (presenceEnabled) {
         const pos = getCanvasPos(e)
         if (pos) updateCursor(pos)
+      }
+
+      // Marquee selection update
+      if (marqueeRef.current) {
+        const pos = getCanvasPos(e)
+        if (pos && selectionRect) {
+          const x = Math.min(selectionRect.startX, pos.x)
+          const y = Math.min(selectionRect.startY, pos.y)
+          const width = Math.abs(pos.x - selectionRect.startX)
+          const height = Math.abs(pos.y - selectionRect.startY)
+          setSelectionRect({ ...selectionRect, x, y, width, height })
+        }
+        return
       }
 
       // Connector preview
@@ -281,10 +317,31 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       drawingPointsRef.current = [...drawingPointsRef.current, pos.x, pos.y]
       setCurrentDrawPoints([...drawingPointsRef.current])
     },
-    [isDrawing, tool, getCanvasPos, presenceEnabled, updateCursor, connectorSource],
+    [isDrawing, tool, getCanvasPos, presenceEnabled, updateCursor, connectorSource, selectionRect],
   )
 
   const handleMouseUp = useCallback(() => {
+    // Complete marquee selection
+    if (marqueeRef.current && selectionRect) {
+      marqueeRef.current = false
+      const rect = selectionRect
+      setSelectionRect(null)
+      if (rect.width > 2 || rect.height > 2) {
+        const hits = objectsRef2.current.filter((obj) => {
+          if (obj.type === 'connector') return false
+          const objRight = obj.x + obj.width
+          const objBottom = obj.y + obj.height
+          const rectRight = rect.x + rect.width
+          const rectBottom = rect.y + rect.height
+          return obj.x < rectRight && objRight > rect.x && obj.y < rectBottom && objBottom > rect.y
+        })
+        if (hits.length > 0) {
+          setSelectedIds(hits.map((o) => o.id))
+        }
+      }
+      return
+    }
+
     if (!isDrawing || tool !== 'freedraw') return
     setIsDrawing(false)
 
@@ -324,19 +381,17 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     addObjectHelper(newObj)
     drawingPointsRef.current = []
     setCurrentDrawPoints([])
-  }, [isDrawing, tool, nextZIndex, addObjectHelper])
+  }, [isDrawing, tool, nextZIndex, addObjectHelper, selectionRect])
 
-  const handleSelect = useCallback((id: string) => {
+  const handleSelect = useCallback((id: string, e?: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     // Connector creation flow
     if (tool === 'connector') {
       const clickedObj = objectsRef2.current.find((o) => o.id === id)
       if (!clickedObj || clickedObj.type === 'connector') return
 
       if (!connectorSource) {
-        // First click: set source
         setConnectorSource(id)
       } else if (id !== connectorSource) {
-        // Second click: create connector
         const sourceObj = objectsRef2.current.find((o) => o.id === connectorSource)
         if (!sourceObj) { setConnectorSource(null); return }
         const now = new Date().toISOString()
@@ -363,13 +418,65 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       }
       return
     }
-    setSelectedId(id)
+
+    const isShift = e?.evt && 'shiftKey' in e.evt && e.evt.shiftKey
+    if (isShift) {
+      // Shift-click: toggle in/out of selection
+      setSelectedIds((prev) =>
+        prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
+      )
+    } else {
+      setSelectedIds([id])
+    }
     setTool('select')
   }, [tool, connectorSource, addObjectHelper])
 
+  const handleDragStart = useCallback((id: string) => {
+    if (!selectedIdsRef.current.includes(id) || selectedIdsRef.current.length < 2) return
+    const stage = stageRef.current
+    if (!stage) return
+    const positions = new Map<string, { x: number; y: number }>()
+    for (const sid of selectedIdsRef.current) {
+      const node = stage.findOne(`#${sid}`)
+      if (node) positions.set(sid, { x: node.x(), y: node.y() })
+    }
+    dragStartPositions.current = positions
+  }, [])
+
+  const handleDragMove = useCallback((id: string, newX: number, newY: number) => {
+    const startPos = dragStartPositions.current.get(id)
+    if (!startPos || selectedIdsRef.current.length < 2) return
+    const dx = newX - startPos.x
+    const dy = newY - startPos.y
+    const stage = stageRef.current
+    if (!stage) return
+    for (const sid of selectedIdsRef.current) {
+      if (sid === id) continue
+      const nodeStart = dragStartPositions.current.get(sid)
+      if (!nodeStart) continue
+      const node = stage.findOne(`#${sid}`)
+      if (node) {
+        node.x(nodeStart.x + dx)
+        node.y(nodeStart.y + dy)
+      }
+    }
+  }, [])
+
   const handleDragEnd = useCallback(
     (id: string, x: number, y: number) => {
-      updateObjectHelper(id, { x, y })
+      if (selectedIdsRef.current.includes(id) && selectedIdsRef.current.length > 1) {
+        // Persist all selected objects' positions
+        const stage = stageRef.current
+        for (const sid of selectedIdsRef.current) {
+          const node = stage?.findOne(`#${sid}`)
+          if (node) {
+            updateObjectHelper(sid, { x: node.x(), y: node.y() })
+          }
+        }
+      } else {
+        updateObjectHelper(id, { x, y })
+      }
+      dragStartPositions.current.clear()
     },
     [updateObjectHelper],
   )
@@ -447,31 +554,29 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     [objects, stageScale, updateObjectHelper],
   )
 
-  // Attach/detach Transformer to the selected node
+  // Attach/detach Transformer to selected nodes
   const syncTransformer = useCallback(() => {
     const transformer = transformerRef.current
     if (!transformer) return
     const stage = stageRef.current
     if (!stage) return
 
-    if (selectedId) {
-      // Don't attach Transformer to connectors — they use endpoint handles instead
-      const selectedObj = objectsRef2.current.find((o) => o.id === selectedId)
-      if (selectedObj?.type === 'connector') {
-        transformer.nodes([])
-        transformer.getLayer()?.batchDraw()
-        return
+    if (selectedIds.length > 0) {
+      const nodes: Konva.Node[] = []
+      for (const id of selectedIds) {
+        // Don't attach Transformer to connectors — they use endpoint handles
+        const obj = objectsRef2.current.find((o) => o.id === id)
+        if (obj?.type === 'connector') continue
+        const node = stage.findOne(`#${id}`)
+        if (node) nodes.push(node)
       }
-      const node = stage.findOne(`#${selectedId}`)
-      if (node) {
-        transformer.nodes([node])
-        transformer.getLayer()?.batchDraw()
-        return
-      }
+      transformer.nodes(nodes)
+      transformer.getLayer()?.batchDraw()
+      return
     }
     transformer.nodes([])
     transformer.getLayer()?.batchDraw()
-  }, [selectedId])
+  }, [selectedIds])
 
   // Re-sync Transformer on every selectedId change via effect
   // (requestAnimationFrame ensures Konva nodes are rendered before lookup)
@@ -485,20 +590,20 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const handleLayerDraw = syncTransformer
 
   const handleDeleteSelected = useCallback(() => {
-    if (!selectedId) return
-    // Also delete any connectors attached to this object
+    if (selectedIds.length === 0) return
+    // Also delete any connectors attached to selected objects
+    const selectedSet = new Set(selectedIds)
     const connectedConnectors = objectsRef2.current.filter(
-      (o) => o.type === 'connector' && (o.fromId === selectedId || o.toId === selectedId),
+      (o) => o.type === 'connector' && (selectedSet.has(o.fromId || '') || selectedSet.has(o.toId || '')),
     )
+    const allToDelete = new Set([...selectedIds, ...connectedConnectors.map((c) => c.id)])
     if (syncEnabled) {
-      deleteObject(selectedId)
-      connectedConnectors.forEach((c) => deleteObject(c.id))
+      allToDelete.forEach((id) => deleteObject(id))
     } else {
-      const idsToDelete = new Set([selectedId, ...connectedConnectors.map((c) => c.id)])
-      setLocalObjects((prev) => prev.filter((o) => !idsToDelete.has(o.id)))
+      setLocalObjects((prev) => prev.filter((o) => !allToDelete.has(o.id)))
     }
-    setSelectedId(null)
-  }, [selectedId, syncEnabled, deleteObject])
+    setSelectedIds([])
+  }, [selectedIds, syncEnabled, deleteObject])
 
   const handleMouseLeave = useCallback(() => {
     if (presenceEnabled) updateCursor(null)
@@ -634,59 +739,76 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         e.preventDefault()
         handleZoomFit()
       }
+      // Select all
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault()
+        const nonConnectors = objectsRef2.current.filter((o) => o.type !== 'connector')
+        setSelectedIds(nonConnectors.map((o) => o.id))
+      }
       // Copy
       if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
-        if (selectedId) {
-          const obj = objectsRef2.current.find((o) => o.id === selectedId)
-          if (obj) clipboardRef.current = { ...obj }
+        const ids = selectedIdsRef.current
+        if (ids.length > 0) {
+          clipboardRef.current = ids
+            .map((id) => objectsRef2.current.find((o) => o.id === id))
+            .filter((o): o is CanvasObject => !!o)
+            .map((o) => ({ ...o }))
         }
       }
       // Paste
       if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
-        const clip = clipboardRef.current
-        if (!clip) return
+        const clips = clipboardRef.current
+        if (!clips || clips.length === 0) return
         e.preventDefault()
         const now = new Date().toISOString()
-        const newObj: CanvasObject = {
-          ...clip,
-          id: generateId(),
-          x: clip.x + 20,
-          y: clip.y + 20,
-          z_index: nextZIndexRef.current,
-          updated_at: now,
+        const newIds: string[] = []
+        for (const clip of clips) {
+          const newObj: CanvasObject = {
+            ...clip,
+            id: generateId(),
+            x: clip.x + 20,
+            y: clip.y + 20,
+            z_index: nextZIndexRef.current,
+            updated_at: now,
+          }
+          if (newObj.type === 'connector') {
+            newObj.fromId = undefined
+            newObj.toId = undefined
+          }
+          addObjectHelper(newObj)
+          newIds.push(newObj.id)
         }
-        if (newObj.type === 'connector') {
-          newObj.fromId = undefined
-          newObj.toId = undefined
-        }
-        addObjectHelper(newObj)
-        setSelectedId(newObj.id)
-        clipboardRef.current = { ...newObj }
+        setSelectedIds(newIds)
+        // Update clipboard for cascading pastes
+        clipboardRef.current = clips.map((c) => ({ ...c, x: c.x + 20, y: c.y + 20 }))
       }
       // Duplicate
       if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
         e.preventDefault()
-        if (selectedId) {
-          const obj = objectsRef2.current.find((o) => o.id === selectedId)
-          if (obj) {
-            const now = new Date().toISOString()
-            const newObj: CanvasObject = {
-              ...obj,
-              id: generateId(),
-              x: obj.x + 20,
-              y: obj.y + 20,
-              z_index: nextZIndexRef.current,
-              updated_at: now,
-            }
-            addObjectHelper(newObj)
-            setSelectedId(newObj.id)
+        const ids = selectedIdsRef.current
+        if (ids.length === 0) return
+        const now = new Date().toISOString()
+        const newIds: string[] = []
+        for (const id of ids) {
+          const obj = objectsRef2.current.find((o) => o.id === id)
+          if (!obj) continue
+          const newObj: CanvasObject = {
+            ...obj,
+            id: generateId(),
+            x: obj.x + 20,
+            y: obj.y + 20,
+            z_index: nextZIndexRef.current,
+            updated_at: now,
           }
+          addObjectHelper(newObj)
+          newIds.push(newObj.id)
         }
+        setSelectedIds(newIds)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editingId, selectedId, handleDeleteSelected, handleZoomIn, handleZoomOut, handleZoomFit, addObjectHelper])
+  }, [editingId, handleDeleteSelected, handleZoomIn, handleZoomOut, handleZoomFit, addObjectHelper])
 
   return (
     <div className="flex h-screen w-screen flex-col">
@@ -694,7 +816,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         tool={tool}
         shapeTool={shapeTool}
         stickyColor={stickyColor}
-        selectedId={selectedId}
+        selectedIds={selectedIds}
         boardSlug={boardSlug}
         boardName={displayName}
         boardId={boardId}
@@ -760,7 +882,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
                   for (let x = startX; x < endX; x += gridSize) {
                     for (let y = startY; y < endY; y += gridSize) {
                       dots.push(
-                        <Rect
+                        <KonvaRect
                           key={`dot-${x}-${y}`}
                           x={x - 1}
                           y={y - 1}
@@ -837,6 +959,8 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
                     isEditing={false}
                     onSelect={handleSelect}
                     onDoubleClick={handleDoubleClick}
+                    onDragStart={handleDragStart}
+                    onDragMove={handleDragMove}
                     onDragEnd={handleDragEnd}
                     onTransformEnd={handleTransformEnd}
                   />
@@ -849,6 +973,8 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
                   isEditing={editingId === obj.id}
                   onSelect={handleSelect}
                   onDoubleClick={handleDoubleClick}
+                  onDragStart={handleDragStart}
+                  onDragMove={handleDragMove}
                   onDragEnd={handleDragEnd}
                   onTransformEnd={handleTransformEnd}
                 />
@@ -881,10 +1007,25 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
               />
             )}
 
-            {/* Connector endpoint handles (when a connector is selected) */}
+            {/* Marquee selection rectangle */}
+            {selectionRect && (
+              <KonvaRect
+                x={selectionRect.x}
+                y={selectionRect.y}
+                width={selectionRect.width}
+                height={selectionRect.height}
+                fill="rgba(59, 130, 246, 0.08)"
+                stroke="#3b82f6"
+                strokeWidth={1 / stageScale}
+                dash={[6 / stageScale, 3 / stageScale]}
+                listening={false}
+              />
+            )}
+
+            {/* Connector endpoint handles (when a single connector is selected) */}
             {(() => {
-              if (!selectedId) return null
-              const selObj = objects.find((o) => o.id === selectedId)
+              if (selectedIds.length !== 1) return null
+              const selObj = objects.find((o) => o.id === selectedIds[0])
               if (!selObj || selObj.type !== 'connector' || !selObj.fromId || !selObj.toId) return null
               const fromObj = objects.find((o) => o.id === selObj.fromId)
               const toObj = objects.find((o) => o.id === selObj.toId)

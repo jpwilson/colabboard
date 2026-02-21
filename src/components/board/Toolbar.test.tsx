@@ -13,7 +13,7 @@ function defaultProps(overrides: Partial<Parameters<typeof Toolbar>[0]> = {}) {
     tool: 'select' as Tool,
     shapeTool: 'rectangle' as ShapeTool,
     stickyColor: '#fef08a',
-    selectedId: null as string | null,
+    selectedIds: [] as string[],
     onToolChange: vi.fn(),
     onShapeToolChange: vi.fn(),
     onStickyColorChange: vi.fn(),
@@ -66,8 +66,8 @@ describe('Toolbar', () => {
     expect(props.onToolChange).toHaveBeenCalledWith('freedraw')
   })
 
-  it('hides delete button when selectedId is null', () => {
-    render(<Toolbar {...defaultProps({ selectedId: null })} />)
+  it('hides delete button when nothing is selected', () => {
+    render(<Toolbar {...defaultProps({ selectedIds: [] })} />)
 
     // Delete button has a trash icon SVG with a specific path
     const deleteBtn = screen.queryAllByRole('button').find((btn) =>
@@ -76,9 +76,9 @@ describe('Toolbar', () => {
     expect(deleteBtn).toBeUndefined()
   })
 
-  it('shows and handles delete button when selectedId is set', async () => {
+  it('shows and handles delete button when objects are selected', async () => {
     const user = userEvent.setup()
-    const props = defaultProps({ selectedId: 'obj-1' })
+    const props = defaultProps({ selectedIds: ['obj-1'] })
     render(<Toolbar {...props} />)
 
     const deleteBtn = screen.getAllByRole('button').find((btn) =>
@@ -118,7 +118,7 @@ describe('Toolbar', () => {
 
   it('shows correct help text per tool', () => {
     const { rerender } = render(<Toolbar {...defaultProps({ tool: 'select' })} />)
-    expect(screen.getByText('Click to select, scroll to zoom')).toBeInTheDocument()
+    expect(screen.getByText('Click to select, Shift+click for multi-select, scroll to zoom')).toBeInTheDocument()
 
     rerender(<Toolbar {...defaultProps({ tool: 'connector' })} />)
     expect(screen.getByText('Click source, then target object')).toBeInTheDocument()

@@ -86,7 +86,7 @@ interface ToolbarProps {
   tool: Tool
   shapeTool: ShapeTool
   stickyColor: string
-  selectedId: string | null
+  selectedIds: string[]
   boardSlug?: string
   boardName?: string
   boardId?: string
@@ -109,7 +109,7 @@ export function Toolbar({
   tool,
   shapeTool,
   stickyColor,
-  selectedId,
+  selectedIds,
   boardSlug,
   boardName,
   boardId,
@@ -352,7 +352,7 @@ export function Toolbar({
       </button>
 
       {/* Delete */}
-      {selectedId && (
+      {selectedIds.length > 0 && (
         <>
           <div className="h-6 w-px bg-slate-200" />
           <button
@@ -443,7 +443,7 @@ export function Toolbar({
 
       {/* Help text */}
       <span className="hidden text-xs text-slate-400 lg:inline">
-        {tool === 'select' && 'Click to select, scroll to zoom'}
+        {tool === 'select' && 'Click to select, Shift+click for multi-select, scroll to zoom'}
         {tool === 'sticky_note' && 'Click to place sticky note'}
         {tool === 'shape' && `Click to place ${activeShapeOption.label.toLowerCase()}`}
         {tool === 'freedraw' && 'Click and drag to draw'}
