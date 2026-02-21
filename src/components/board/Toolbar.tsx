@@ -97,6 +97,10 @@ interface ToolbarProps {
   onShapeToolChange: (shape: ShapeTool) => void
   onStickyColorChange: (color: string) => void
   onDelete: () => void
+  onUndo?: () => void
+  onRedo?: () => void
+  canUndo?: boolean
+  canRedo?: boolean
   onZoomIn?: () => void
   onZoomOut?: () => void
   onZoomFit?: () => void
@@ -119,6 +123,10 @@ export function Toolbar({
   onShapeToolChange,
   onStickyColorChange,
   onDelete,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   onZoomIn,
   onZoomOut,
   onZoomFit,
@@ -216,14 +224,14 @@ export function Toolbar({
       )}
 
       {/* Select */}
-      <button onClick={() => onToolChange('select')} className={toolBtnClass(tool === 'select')}>
+      <button onClick={() => onToolChange('select')} className={toolBtnClass(tool === 'select')} data-tour-step="select">
         <svg className="inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672z" />
         </svg>
       </button>
 
       {/* Sticky Note with color dropdown */}
-      <div className="relative" ref={stickyDropdownRef}>
+      <div className="relative" ref={stickyDropdownRef} data-tour-step="sticky">
         <div className="flex">
           <button
             onClick={() => onToolChange('sticky_note')}
@@ -293,7 +301,7 @@ export function Toolbar({
       </button>
 
       {/* Shapes dropdown */}
-      <div className="relative" ref={shapeDropdownRef}>
+      <div className="relative" ref={shapeDropdownRef} data-tour-step="shapes">
         <div className="flex">
           <button
             onClick={() => onToolChange('shape')}
@@ -343,6 +351,7 @@ export function Toolbar({
         onClick={() => onToolChange('freedraw')}
         className={toolBtnClass(tool === 'freedraw')}
         title="Free draw"
+        data-tour-step="freedraw"
       >
         <svg className="inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
@@ -375,12 +384,40 @@ export function Toolbar({
         </>
       )}
 
+      {/* Undo / Redo */}
+      {onUndo && onRedo && (
+        <>
+          <div className="h-6 w-px bg-slate-200" />
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className={`rounded px-2 py-1.5 text-sm transition ${canUndo ? 'text-slate-600 hover:bg-slate-100' : 'cursor-default text-slate-300'}`}
+            title="Undo (Cmd+Z)"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+            </svg>
+          </button>
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            className={`rounded px-2 py-1.5 text-sm transition ${canRedo ? 'text-slate-600 hover:bg-slate-100' : 'cursor-default text-slate-300'}`}
+            title="Redo (Cmd+Shift+Z)"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
+            </svg>
+          </button>
+        </>
+      )}
+
       <div className="flex-1" />
 
       {/* Grid cycle: none → dots → lines */}
       {onCycleGrid && (
         <button
           onClick={onCycleGrid}
+          data-tour-step="grid"
           className={`flex items-center gap-1 rounded px-2 py-1.5 text-sm transition ${
             gridMode !== 'none' ? 'text-slate-600 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'
           }`}
@@ -432,6 +469,7 @@ export function Toolbar({
           onClick={() => setShareModalOpen(true)}
           className="rounded px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
           title="Share board"
+          data-tour-step="share"
         >
           <svg className="mr-1 inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />

@@ -13,11 +13,12 @@ interface BoardCardProps {
   memberCount: number
   isOwner: boolean
   ownerName?: string
+  sharedWith?: Array<{ name: string; date: string }>
   renameAction: (boardId: string, formData: FormData) => Promise<void>
   deleteAction: (boardId: string) => Promise<void>
 }
 
-export function BoardCard({ board, memberCount, isOwner, ownerName, renameAction, deleteAction }: BoardCardProps) {
+export function BoardCard({ board, memberCount, isOwner, ownerName, sharedWith, renameAction, deleteAction }: BoardCardProps) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(board.name)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -85,6 +86,33 @@ export function BoardCard({ board, memberCount, isOwner, ownerName, renameAction
           <span className="text-slate-400">by {ownerName}</span>
         )}
       </div>
+
+      {/* Shared with section — only for owned boards with collaborators */}
+      {isOwner && sharedWith && sharedWith.length > 0 && (
+        <div className="mt-3 border-t border-slate-100 pt-2">
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-slate-400">
+            Shared with
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {sharedWith.slice(0, 3).map((person, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1 rounded-full bg-primary/5 px-2 py-0.5 text-[10px] text-slate-600"
+              >
+                {person.name}
+                <span className="text-slate-400">
+                  {new Date(person.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </span>
+              </span>
+            ))}
+            {sharedWith.length > 3 && (
+              <span className="text-[10px] text-slate-400">
+                +{sharedWith.length - 3} more
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Action buttons — show on hover */}
       {isOwner && (

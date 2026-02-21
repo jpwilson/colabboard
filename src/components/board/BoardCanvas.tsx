@@ -5,6 +5,7 @@ import { Stage, Layer, Rect as KonvaRect, Circle, Line, Arrow, Transformer } fro
 import type Konva from 'konva'
 import { usePresence } from '@/hooks/usePresence'
 import { useBoard } from '@/hooks/useBoard'
+import { useUndoRedo, type UndoAction } from '@/hooks/useUndoRedo'
 import { CursorOverlay } from './CursorOverlay'
 import { PresenceIndicator } from './PresenceIndicator'
 import { ShapeRenderer } from './ShapeRenderer'
@@ -83,6 +84,10 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const objectsRef2 = useRef<CanvasObject[]>([])
   const nextZIndexRef = useRef(0)
   const selectedIdsRef = useRef<string[]>([])
+  const undoDragStartRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+
+  // Undo/redo system
+  const { pushAction, undo, redo, canUndo, canRedo } = useUndoRedo()
 
   useEffect(() => {
     function handleResize() {
@@ -153,6 +158,88 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       }
     },
     [syncEnabled, updateObject],
+  )
+
+  // Undo/redo action dispatcher
+  const applyUndoAction = useCallback(
+    (action: UndoAction, isUndo: boolean) => {
+      if (action.type === 'batch') {
+        const entries = isUndo ? [...action.entries].reverse() : action.entries
+        for (const entry of entries) {
+          if (entry.type === 'create') {
+            if (isUndo) {
+              if (syncEnabled) deleteObject(entry.objectId)
+              else setLocalObjects((prev) => prev.filter((o) => o.id !== entry.objectId))
+            } else {
+              addObjectHelper(entry.objectSnapshot as CanvasObject)
+            }
+          } else if (entry.type === 'delete') {
+            if (isUndo) {
+              addObjectHelper(entry.objectSnapshot as CanvasObject)
+            } else {
+              if (syncEnabled) deleteObject(entry.objectId)
+              else setLocalObjects((prev) => prev.filter((o) => o.id !== entry.objectId))
+            }
+          } else if (entry.type === 'update') {
+            const values = isUndo ? entry.before : entry.after
+            updateObjectHelper(entry.objectId, values as Partial<CanvasObject>)
+          }
+        }
+        return
+      }
+      if (action.type === 'create') {
+        if (isUndo) {
+          if (syncEnabled) deleteObject(action.objectId)
+          else setLocalObjects((prev) => prev.filter((o) => o.id !== action.objectId))
+        } else {
+          addObjectHelper(action.objectSnapshot as CanvasObject)
+        }
+      } else if (action.type === 'delete') {
+        if (isUndo) {
+          addObjectHelper(action.objectSnapshot as CanvasObject)
+        } else {
+          if (syncEnabled) deleteObject(action.objectId)
+          else setLocalObjects((prev) => prev.filter((o) => o.id !== action.objectId))
+        }
+      } else if (action.type === 'update') {
+        const values = isUndo ? action.before : action.after
+        updateObjectHelper(action.objectId, values as Partial<CanvasObject>)
+      }
+    },
+    [syncEnabled, addObjectHelper, updateObjectHelper, deleteObject],
+  )
+
+  const handleUndo = useCallback(() => {
+    const action = undo()
+    if (action) {
+      setSelectedIds([])
+      applyUndoAction(action, true)
+    }
+  }, [undo, applyUndoAction])
+
+  const handleRedo = useCallback(() => {
+    const action = redo()
+    if (action) {
+      setSelectedIds([])
+      applyUndoAction(action, false)
+    }
+  }, [redo, applyUndoAction])
+
+  // Wrapper that tracks undo for property panel changes
+  const updateObjectWithUndo = useCallback(
+    (id: string, updates: Partial<CanvasObject>) => {
+      const obj = objectsRef2.current.find((o) => o.id === id)
+      if (obj) {
+        const before: Record<string, unknown> = {}
+        const objRecord = obj as unknown as Record<string, unknown>
+        for (const key of Object.keys(updates)) {
+          before[key] = objRecord[key]
+        }
+        pushAction({ type: 'update', objectId: id, before, after: updates as unknown as Record<string, unknown> })
+      }
+      updateObjectHelper(id, updates)
+    },
+    [updateObjectHelper, pushAction],
   )
 
   const getCanvasPos = useCallback(
@@ -245,6 +332,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       }
 
       addObjectHelper(newObj)
+      pushAction({ type: 'create', objectId: newObj.id, objectSnapshot: { ...newObj } })
       if (shapeType === 'text') {
         setSelectedIds([newObj.id])
         // Enter edit mode for the new text immediately
@@ -252,7 +340,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       }
       setTool('select')
     },
-    [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper],
+    [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper, pushAction],
   )
 
   // Freedraw + marquee handlers
@@ -389,9 +477,10 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     }
 
     addObjectHelper(newObj)
+    pushAction({ type: 'create', objectId: newObj.id, objectSnapshot: { ...newObj } })
     drawingPointsRef.current = []
     setCurrentDrawPoints([])
-  }, [isDrawing, tool, nextZIndex, addObjectHelper, selectionRect])
+  }, [isDrawing, tool, nextZIndex, addObjectHelper, selectionRect, pushAction])
 
   const handleSelect = useCallback((id: string, e?: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     // Connector creation flow
@@ -422,6 +511,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
           updated_at: now,
         }
         addObjectHelper(newConnector)
+        pushAction({ type: 'create', objectId: newConnector.id, objectSnapshot: { ...newConnector } })
         setConnectorSource(null)
         setConnectorPreview(null)
         setTool('select')
@@ -439,14 +529,20 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       setSelectedIds([id])
     }
     setTool('select')
-  }, [tool, connectorSource, addObjectHelper])
+  }, [tool, connectorSource, addObjectHelper, pushAction])
 
   const handleDragStart = useCallback((id: string) => {
+    // Capture pre-drag positions for undo
+    const obj = objectsRef2.current.find((o) => o.id === id)
+    if (obj) undoDragStartRef.current.set(id, { x: obj.x, y: obj.y })
+
     if (!selectedIdsRef.current.includes(id) || selectedIdsRef.current.length < 2) return
     const stage = stageRef.current
     if (!stage) return
     const positions = new Map<string, { x: number; y: number }>()
     for (const sid of selectedIdsRef.current) {
+      const sObj = objectsRef2.current.find((o) => o.id === sid)
+      if (sObj) undoDragStartRef.current.set(sid, { x: sObj.x, y: sObj.y })
       const node = stage.findOne(`#${sid}`)
       if (node) positions.set(sid, { x: node.x(), y: node.y() })
     }
@@ -475,38 +571,56 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const handleDragEnd = useCallback(
     (id: string, x: number, y: number) => {
       if (selectedIdsRef.current.includes(id) && selectedIdsRef.current.length > 1) {
-        // Persist all selected objects' positions
+        // Multi-drag: batch undo
+        const undoEntries: UndoAction[] = []
         const stage = stageRef.current
         for (const sid of selectedIdsRef.current) {
           const node = stage?.findOne(`#${sid}`)
+          const before = undoDragStartRef.current.get(sid)
           if (node) {
-            updateObjectHelper(sid, { x: node.x(), y: node.y() })
+            const after = { x: node.x(), y: node.y() }
+            updateObjectHelper(sid, after)
+            if (before) undoEntries.push({ type: 'update', objectId: sid, before, after })
           }
         }
+        if (undoEntries.length > 0) pushAction({ type: 'batch', entries: undoEntries })
       } else {
-        updateObjectHelper(id, { x, y })
+        const before = undoDragStartRef.current.get(id)
+        const after = { x, y }
+        updateObjectHelper(id, after)
+        if (before) pushAction({ type: 'update', objectId: id, before, after })
       }
+      undoDragStartRef.current.clear()
       dragStartPositions.current.clear()
     },
-    [updateObjectHelper],
+    [updateObjectHelper, pushAction],
   )
 
   const handleTransformEnd = useCallback(
     (id: string, node: Konva.Node) => {
+      // Capture before state from object store (not yet updated)
+      const objBefore = objectsRef2.current.find((o) => o.id === id)
+      const before = objBefore
+        ? { x: objBefore.x, y: objBefore.y, width: objBefore.width, height: objBefore.height, rotation: objBefore.rotation }
+        : null
+
       const scaleX = node.scaleX()
       const scaleY = node.scaleY()
       node.scaleX(1)
       node.scaleY(1)
 
-      updateObjectHelper(id, {
+      const after = {
         x: node.x(),
         y: node.y(),
         width: Math.max(20, node.width() * scaleX),
         height: Math.max(20, node.height() * scaleY),
         rotation: node.rotation(),
-      })
+      }
+
+      updateObjectHelper(id, after)
+      if (before) pushAction({ type: 'update', objectId: id, before, after })
     },
-    [updateObjectHelper],
+    [updateObjectHelper, pushAction],
   )
 
   const handleDoubleClick = useCallback(
@@ -555,10 +669,15 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       textarea.focus()
       textarea.select()
 
+      const oldText = obj.text || ''
       const handleBlur = () => {
-        updateObjectHelper(id, { text: textarea.value })
+        const newText = textarea.value
+        updateObjectHelper(id, { text: newText })
         textarea.remove()
         setEditingId(null)
+        if (oldText !== newText) {
+          pushAction({ type: 'update', objectId: id, before: { text: oldText }, after: { text: newText } })
+        }
       }
 
       textarea.addEventListener('blur', handleBlur)
@@ -566,7 +685,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         if (e.key === 'Escape') textarea.blur()
       })
     },
-    [objects, stageScale, updateObjectHelper],
+    [objects, stageScale, updateObjectHelper, pushAction],
   )
 
   // Attach/detach Transformer to selected nodes
@@ -612,13 +731,24 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       (o) => o.type === 'connector' && (selectedSet.has(o.fromId || '') || selectedSet.has(o.toId || '')),
     )
     const allToDelete = new Set([...selectedIds, ...connectedConnectors.map((c) => c.id)])
+
+    // Snapshot for undo
+    const undoEntries: UndoAction[] = []
+    for (const id of allToDelete) {
+      const obj = objectsRef2.current.find((o) => o.id === id)
+      if (obj) undoEntries.push({ type: 'delete', objectId: id, objectSnapshot: { ...obj } })
+    }
+
     if (syncEnabled) {
       allToDelete.forEach((id) => deleteObject(id))
     } else {
       setLocalObjects((prev) => prev.filter((o) => !allToDelete.has(o.id)))
     }
     setSelectedIds([])
-  }, [selectedIds, syncEnabled, deleteObject])
+
+    if (undoEntries.length === 1) pushAction(undoEntries[0])
+    else if (undoEntries.length > 1) pushAction({ type: 'batch', entries: undoEntries })
+  }, [selectedIds, syncEnabled, deleteObject, pushAction])
 
   const handleMouseLeave = useCallback(() => {
     if (presenceEnabled) updateCursor(null)
@@ -742,6 +872,16 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       if (e.key === 'Delete' || e.key === 'Backspace') {
         handleDeleteSelected()
       }
+      // Undo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      }
+      // Redo
+      if ((e.metaKey || e.ctrlKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+        e.preventDefault()
+        handleRedo()
+      }
       if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault()
         handleZoomIn()
@@ -777,6 +917,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         e.preventDefault()
         const now = new Date().toISOString()
         const newIds: string[] = []
+        const createEntries: UndoAction[] = []
         for (const clip of clips) {
           const newObj: CanvasObject = {
             ...clip,
@@ -792,7 +933,10 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
           }
           addObjectHelper(newObj)
           newIds.push(newObj.id)
+          createEntries.push({ type: 'create', objectId: newObj.id, objectSnapshot: { ...newObj } })
         }
+        if (createEntries.length === 1) pushAction(createEntries[0])
+        else if (createEntries.length > 1) pushAction({ type: 'batch', entries: createEntries })
         setSelectedIds(newIds)
         // Update clipboard for cascading pastes
         clipboardRef.current = clips.map((c) => ({ ...c, x: c.x + 20, y: c.y + 20 }))
@@ -804,6 +948,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         if (ids.length === 0) return
         const now = new Date().toISOString()
         const newIds: string[] = []
+        const createEntries: UndoAction[] = []
         for (const id of ids) {
           const obj = objectsRef2.current.find((o) => o.id === id)
           if (!obj) continue
@@ -817,13 +962,16 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
           }
           addObjectHelper(newObj)
           newIds.push(newObj.id)
+          createEntries.push({ type: 'create', objectId: newObj.id, objectSnapshot: { ...newObj } })
         }
+        if (createEntries.length === 1) pushAction(createEntries[0])
+        else if (createEntries.length > 1) pushAction({ type: 'batch', entries: createEntries })
         setSelectedIds(newIds)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editingId, handleDeleteSelected, handleZoomIn, handleZoomOut, handleZoomFit, addObjectHelper])
+  }, [editingId, handleDeleteSelected, handleZoomIn, handleZoomOut, handleZoomFit, addObjectHelper, handleUndo, handleRedo, pushAction])
 
   return (
     <div className="flex h-screen w-screen flex-col">
@@ -842,6 +990,10 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         onShapeToolChange={setShapeTool}
         onStickyColorChange={setStickyColor}
         onDelete={handleDeleteSelected}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onZoomFit={handleZoomFit}
@@ -859,7 +1011,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         {syncEnabled && <ConnectionIndicator status={connectionStatus} />}
 
         {/* Properties panel */}
-        <PropertiesPanel selectedObject={selectedObject} onUpdate={updateObjectHelper} objectScreenPosition={selectedObjectScreenPos} />
+        <PropertiesPanel selectedObject={selectedObject} onUpdate={updateObjectWithUndo} objectScreenPosition={selectedObjectScreenPos} />
 
         <Stage
           ref={stageRef}

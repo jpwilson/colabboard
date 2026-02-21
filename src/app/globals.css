@@ -29,12 +29,45 @@
   --font-nunito: var(--font-nunito);
 }
 
+[data-theme="dark"] {
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --primary: #38bdf8;
+  --primary-light: #0c4a6e;
+  --primary-dark: #7dd3fc;
+  --accent: #fbbf24;
+  --accent-dark: #fcd34d;
+  --teal: #2dd4bf;
+  --slate: #94a3b8;
+  --slate-light: #cbd5e1;
+  color-scheme: dark;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  color-scheme: light;
 }
+
+/* Dark mode overrides for Tailwind utility classes */
+[data-theme="dark"] .bg-white { background-color: #1e293b !important; }
+[data-theme="dark"] .bg-white\/50 { background-color: rgba(30, 41, 59, 0.5) !important; }
+[data-theme="dark"] .bg-white\/60 { background-color: rgba(30, 41, 59, 0.6) !important; }
+[data-theme="dark"] .bg-white\/90 { background-color: rgba(30, 41, 59, 0.9) !important; }
+[data-theme="dark"] .bg-slate-50 { background-color: #0f172a !important; }
+[data-theme="dark"] .bg-slate-100 { background-color: #1e293b !important; }
+[data-theme="dark"] .border-white\/20 { border-color: rgba(51, 65, 85, 0.3) !important; }
+[data-theme="dark"] .border-white\/30 { border-color: rgba(51, 65, 85, 0.4) !important; }
+[data-theme="dark"] .border-slate-200 { border-color: #334155 !important; }
+[data-theme="dark"] .border-slate-100 { border-color: #1e293b !important; }
+[data-theme="dark"] .text-slate-800 { color: #e2e8f0 !important; }
+[data-theme="dark"] .text-slate-700 { color: #cbd5e1 !important; }
+[data-theme="dark"] .text-slate-600 { color: #94a3b8 !important; }
+[data-theme="dark"] .text-slate-500 { color: #64748b !important; }
+[data-theme="dark"] .text-slate-400 { color: #64748b !important; }
+[data-theme="dark"] .hover\:bg-slate-50:hover { background-color: #1e293b !important; }
+[data-theme="dark"] .hover\:bg-slate-100:hover { background-color: #334155 !important; }
+[data-theme="dark"] .divide-slate-100 > :not(:last-child) { border-color: #1e293b !important; }
 
 /* Alien mascot animations */
 @keyframes alienFloat {
@@ -112,4 +145,9 @@ body {
   40%  { transform: scale(3); }
   60%  { transform: scale(3); }
   100% { transform: scale(1); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
