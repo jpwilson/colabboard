@@ -246,7 +246,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
       addObjectHelper(newObj)
       if (shapeType === 'text') {
-        setSelectedId(newObj.id)
+        setSelectedIds([newObj.id])
         // Enter edit mode for the new text immediately
         setTimeout(() => setEditingId(newObj.id), 100)
       }
