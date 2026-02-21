@@ -49,8 +49,8 @@ function computeGroupStats(
   const avgLatencyMs =
     withLatency.length > 0
       ? Math.round(
-          withLatency.reduce((sum, t) => sum + (t.latency ?? 0), 0) /
-            withLatency.length,
+          (withLatency.reduce((sum, t) => sum + (t.latency ?? 0), 0) /
+            withLatency.length) * 1000,
         )
       : 0
   const totalCost = groupTraces.reduce(
@@ -110,6 +110,7 @@ export default async function AnalyticsPage() {
   const scores = langfuseScoresData as LangfuseScore[]
 
   // Compute Langfuse metrics
+  // Note: Langfuse returns latency in seconds (float), convert to ms
   const totalTraces = traces.length
   const tracesWithLatency = traces.filter(
     (t) => typeof t.latency === 'number' && t.latency > 0,
@@ -117,8 +118,8 @@ export default async function AnalyticsPage() {
   const avgLatencyMs =
     tracesWithLatency.length > 0
       ? Math.round(
-          tracesWithLatency.reduce((sum, t) => sum + (t.latency ?? 0), 0) /
-            tracesWithLatency.length,
+          (tracesWithLatency.reduce((sum, t) => sum + (t.latency ?? 0), 0) /
+            tracesWithLatency.length) * 1000,
         )
       : 0
   const totalCost = traces.reduce((sum, t) => sum + (t.totalCost ?? 0), 0)

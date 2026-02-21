@@ -99,6 +99,58 @@ export async function patchTrace(
 }
 
 /**
+ * Fetch a single page from a Langfuse paginated endpoint.
+ */
+async function fetchPage(
+  endpoint: string,
+  auth: string,
+  params: URLSearchParams,
+): Promise<{ data: unknown[]; totalPages: number }> {
+  const res = await fetch(
+    `${LANGFUSE_BASE_URL}${endpoint}?${params.toString()}`,
+    {
+      headers: { Authorization: auth },
+      cache: 'no-store',
+    },
+  ).catch(() => null)
+
+  if (!res?.ok) return { data: [], totalPages: 0 }
+  const json = await res.json()
+  return {
+    data: json.data ?? [],
+    totalPages: json.meta?.totalPages ?? 1,
+  }
+}
+
+/**
+ * Fetch all pages from a paginated Langfuse endpoint (max 100 per page).
+ */
+async function fetchAllPages(
+  endpoint: string,
+  auth: string,
+  baseParams: Record<string, string>,
+  maxItems: number,
+): Promise<unknown[]> {
+  const PAGE_SIZE = 100
+  const params = new URLSearchParams({ ...baseParams, limit: String(PAGE_SIZE) })
+
+  const first = await fetchPage(endpoint, auth, params)
+  if (first.data.length === 0) return []
+
+  const all = [...first.data]
+  const pages = Math.min(first.totalPages, Math.ceil(maxItems / PAGE_SIZE))
+
+  for (let page = 2; page <= pages && all.length < maxItems; page++) {
+    params.set('page', String(page))
+    const next = await fetchPage(endpoint, auth, params)
+    if (next.data.length === 0) break
+    all.push(...next.data)
+  }
+
+  return all.slice(0, maxItems)
+}
+
+/**
  * Fetch traces from Langfuse for analytics.
  */
 export async function fetchTraces(options?: {
@@ -108,21 +160,10 @@ export async function fetchTraces(options?: {
   const auth = getAuthHeader()
   if (!auth) return []
 
-  const params = new URLSearchParams()
-  if (options?.limit) params.set('limit', String(options.limit))
-  if (options?.name) params.set('name', options.name)
+  const params: Record<string, string> = {}
+  if (options?.name) params.name = options.name
 
-  const res = await fetch(
-    `${LANGFUSE_BASE_URL}/api/public/traces?${params.toString()}`,
-    {
-      headers: { Authorization: auth },
-      cache: 'no-store',
-    },
-  ).catch(() => null)
-
-  if (!res?.ok) return []
-  const data = await res.json()
-  return data.data ?? []
+  return fetchAllPages('/api/public/traces', auth, params, options?.limit ?? 100)
 }
 
 /**
@@ -135,21 +176,10 @@ export async function fetchScores(options?: {
   const auth = getAuthHeader()
   if (!auth) return []
 
-  const params = new URLSearchParams()
-  if (options?.limit) params.set('limit', String(options.limit))
-  if (options?.name) params.set('name', options.name)
+  const params: Record<string, string> = {}
+  if (options?.name) params.name = options.name
 
-  const res = await fetch(
-    `${LANGFUSE_BASE_URL}/api/public/scores?${params.toString()}`,
-    {
-      headers: { Authorization: auth },
-      cache: 'no-store',
-    },
-  ).catch(() => null)
-
-  if (!res?.ok) return []
-  const data = await res.json()
-  return data.data ?? []
+  return fetchAllPages('/api/public/scores', auth, params, options?.limit ?? 500)
 }
 
 /**
@@ -180,19 +210,15 @@ export async function fetchDailyMetrics(options?: {
   const auth = getAuthHeader()
   if (!auth) return []
 
-  const params = new URLSearchParams()
-  if (options?.traceName) params.set('traceName', options.traceName)
-  if (options?.limit) params.set('limit', String(options.limit))
+  const params: Record<string, string> = {}
+  if (options?.traceName) params.traceName = options.traceName
 
-  const res = await fetch(
-    `${LANGFUSE_BASE_URL}/api/public/metrics/daily?${params.toString()}`,
-    {
-      headers: { Authorization: auth },
-      cache: 'no-store',
-    },
-  ).catch(() => null)
-
-  if (!res?.ok) return []
-  const data = await res.json()
-  return data.data ?? []
+  // Daily metrics API: fetch pages up to requested limit (max 100 per page)
+  const results = await fetchAllPages(
+    '/api/public/metrics/daily',
+    auth,
+    params,
+    options?.limit ?? 30,
+  )
+  return results as DailyMetric[]
 }
