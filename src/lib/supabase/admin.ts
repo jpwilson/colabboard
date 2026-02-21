@@ -1,5 +1,26 @@
+import { createClient as createRawClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AgentBackend } from '@/types/board'
+
+/**
+ * Creates a Supabase client with the service role key.
+ * ONLY use server-side (Server Components, API routes).
+ * Bypasses RLS and has auth.admin.* powers.
+ */
+export function createServiceRoleClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY',
+    )
+  }
+  return createRawClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
+
+export const PERMANENT_SUPERUSER_EMAIL = 'jeanpaulwilson@gmail.com'
 
 export async function isUserSuperuser(
   supabase: SupabaseClient,

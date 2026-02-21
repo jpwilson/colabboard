@@ -16,6 +16,8 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [showGraders, setShowGraders] = useState(false)
+  const [graderLoading, setGraderLoading] = useState<number | null>(null)
 
   const supabase = createClient()
 
@@ -81,6 +83,27 @@ export function LoginForm() {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleGraderSignIn(graderNumber: number) {
+    setError(null)
+    setMessage(null)
+    setGraderLoading(graderNumber)
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: `grader${graderNumber}@orim.test`,
+        password: 'grader-eval-2026',
+      })
+      if (error) throw error
+      window.location.href = '/dashboard'
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Grader sign-in failed',
+      )
+    } finally {
+      setGraderLoading(null)
     }
   }
 
@@ -284,6 +307,77 @@ export function LoginForm() {
           {mode === 'sign-in' ? 'Sign up' : 'Sign in'}
         </button>
       </p>
+
+      {/* Grader Quick Access */}
+      <div className="border-t border-slate-200/60 pt-4">
+        <button
+          onClick={() => setShowGraders(!showGraders)}
+          className="flex w-full items-center justify-between text-sm text-slate-400 transition hover:text-slate-600"
+        >
+          <span className="flex items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+              G4
+            </span>
+            Evaluator Quick Access
+          </span>
+          <svg
+            className={`h-4 w-4 transition-transform ${showGraders ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </button>
+
+        {showGraders && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-slate-400">
+              Temporary accounts for assignment graders. Click to sign in
+              instantly as a unique test user.
+            </p>
+            <div className="grid grid-cols-5 gap-2">
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => handleGraderSignIn(n)}
+                  disabled={graderLoading !== null}
+                  className="flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-medium text-amber-700 transition hover:border-amber-300 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  {graderLoading === n ? (
+                    <svg
+                      className="h-4 w-4 animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                      />
+                    </svg>
+                  ) : (
+                    `G${n}`
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

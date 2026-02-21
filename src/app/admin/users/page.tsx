@@ -1,10 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import {
+  createServiceRoleClient,
+  PERMANENT_SUPERUSER_EMAIL,
+} from '@/lib/supabase/admin'
+import { SuperuserToggle } from '@/components/admin/SuperuserToggle'
 
 interface ProfileRow {
   id: string
   display_name: string | null
   email: string | null
-  updated_at: string | null
 }
 
 export default async function UsersPage() {
@@ -13,8 +17,24 @@ export default async function UsersPage() {
   // Fetch all profiles (public table, accessible to superuser via RLS)
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, display_name, email, updated_at')
-    .order('updated_at', { ascending: false })
+    .select('id, display_name, email')
+
+  // Fetch auth user data for last_sign_in_at and superuser status
+  // Note: listUsers() returns 50 per page — sufficient for current user count
+  const adminClient = createServiceRoleClient()
+  const { data: authUsersData } = await adminClient.auth.admin.listUsers()
+  const authUsers = authUsersData?.users ?? []
+
+  const authUserMap = new Map(
+    authUsers.map((u) => [
+      u.id,
+      {
+        lastSignInAt: u.last_sign_in_at,
+        isSuperuser: u.user_metadata?.is_superuser === true,
+        email: u.email,
+      },
+    ]),
+  )
 
   // Get board counts per user (as owner)
   const { data: boardCounts } = await supabase
@@ -36,14 +56,26 @@ export default async function UsersPage() {
     memberCountMap.set(m.user_id, (memberCountMap.get(m.user_id) || 0) + 1)
   }
 
-  const users = ((profiles as ProfileRow[]) || []).map((p) => ({
-    id: p.id,
-    displayName: p.display_name || 'Anonymous',
-    email: p.email || null,
-    updatedAt: p.updated_at,
-    boardsOwned: ownerCountMap.get(p.id) || 0,
-    boardsMember: memberCountMap.get(p.id) || 0,
-  }))
+  const users = ((profiles as ProfileRow[]) || []).map((p) => {
+    const authData = authUserMap.get(p.id)
+    return {
+      id: p.id,
+      displayName: p.display_name || 'Anonymous',
+      email: p.email || authData?.email || null,
+      lastSignInAt: authData?.lastSignInAt || null,
+      isSuperuser: authData?.isSuperuser || false,
+      boardsOwned: ownerCountMap.get(p.id) || 0,
+      boardsMember: memberCountMap.get(p.id) || 0,
+    }
+  })
+
+  // Sort by last sign-in (most recent first), nulls last
+  users.sort((a, b) => {
+    if (!a.lastSignInAt && !b.lastSignInAt) return 0
+    if (!a.lastSignInAt) return 1
+    if (!b.lastSignInAt) return -1
+    return new Date(b.lastSignInAt).getTime() - new Date(a.lastSignInAt).getTime()
+  })
 
   return (
     <div>
@@ -71,6 +103,9 @@ export default async function UsersPage() {
               <th className="px-6 py-3 text-center text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 Memberships
               </th>
+              <th className="px-6 py-3 text-center text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                Superuser
+              </th>
               <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase">
                 Last Active
               </th>
@@ -94,7 +129,9 @@ export default async function UsersPage() {
                 </td>
                 <td className="px-6 py-4">
                   <span className="text-sm text-slate-600">
-                    {user.email || <span className="italic text-slate-400">No email</span>}
+                    {user.email || (
+                      <span className="italic text-slate-400">No email</span>
+                    )}
                   </span>
                 </td>
                 <td className="px-6 py-4">
@@ -112,12 +149,21 @@ export default async function UsersPage() {
                     {user.boardsMember}
                   </span>
                 </td>
+                <td className="px-6 py-4 text-center">
+                  <SuperuserToggle
+                    userId={user.id}
+                    initialValue={user.isSuperuser}
+                    disabled={user.email === PERMANENT_SUPERUSER_EMAIL}
+                  />
+                </td>
                 <td className="px-6 py-4 text-sm text-slate-500">
-                  {user.updatedAt
-                    ? new Date(user.updatedAt).toLocaleDateString('en-US', {
+                  {user.lastSignInAt
+                    ? new Date(user.lastSignInAt).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
                       })
                     : 'Never'}
                 </td>
@@ -126,7 +172,7 @@ export default async function UsersPage() {
             {users.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-6 py-12 text-center text-sm text-slate-400"
                 >
                   No users found
