@@ -145,24 +145,27 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         updated_at: obj.updated_at,
       }
 
-      // Broadcast to other clients
-      broadcast({ type: 'create', object: boardObj })
-
-      // Persist to database
+      // Persist to database first, then broadcast
       const supabase = createClient()
       const { error } = await supabase.from('board_objects').insert(boardObj)
-      if (error) console.error('Failed to create object:', error)
+      if (error) {
+        console.error('Failed to create object:', error)
+        objectsRef.current.delete(obj.id)
+        syncState()
+        return
+      }
+      broadcast({ type: 'create', object: boardObj })
     },
     [boardId, userId, syncState, broadcast],
   )
 
   const updateObject = useCallback(
     async (id: string, updates: Partial<CanvasObject>) => {
-      const existing = objectsRef.current.get(id)
-      if (!existing) return
+      const previous = objectsRef.current.get(id)
+      if (!previous) return
 
       const updated: CanvasObject = {
-        ...existing,
+        ...previous,
         ...updates,
         updated_at: new Date().toISOString(),
       }
@@ -179,12 +182,11 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         width: updated.width,
         height: updated.height,
         z_index: updated.z_index,
-        created_by: existing.updated_at ? userId : null,
+        created_by: previous.updated_at ? userId : null,
         updated_at: updated.updated_at,
       }
 
-      broadcast({ type: 'update', object: boardObj })
-
+      // Persist to database first, then broadcast
       const supabase = createClient()
       const { error } = await supabase
         .from('board_objects')
@@ -200,25 +202,39 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         })
         .eq('id', id)
         .eq('board_id', boardId)
-      if (error) console.error('Failed to update object:', error)
+      if (error) {
+        console.error('Failed to update object:', error)
+        objectsRef.current.set(id, previous)
+        syncState()
+        return
+      }
+      broadcast({ type: 'update', object: boardObj })
     },
     [boardId, userId, syncState, broadcast],
   )
 
   const deleteObject = useCallback(
     async (id: string) => {
+      const previous = objectsRef.current.get(id)
       objectsRef.current.delete(id)
       syncState()
 
-      broadcast({ type: 'delete', id })
-
+      // Persist to database first, then broadcast
       const supabase = createClient()
       const { error } = await supabase
         .from('board_objects')
         .delete()
         .eq('id', id)
         .eq('board_id', boardId)
-      if (error) console.error('Failed to delete object:', error)
+      if (error) {
+        console.error('Failed to delete object:', error)
+        if (previous) {
+          objectsRef.current.set(id, previous)
+          syncState()
+        }
+        return
+      }
+      broadcast({ type: 'delete', id })
     },
     [boardId, syncState, broadcast],
   )

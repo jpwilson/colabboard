@@ -1,7 +1,7 @@
 import type { UIMessage } from 'ai'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { getAgentBackend } from '@/lib/supabase/admin'
+import { getAgentBackend, getAgentModel } from '@/lib/supabase/admin'
 import { getActiveAdapter } from '@/lib/ai/agent-registry'
 import { observe, getActiveTraceId } from '@/lib/ai/tracing'
 import { classifyCommand } from '@/lib/ai/classify-command'
@@ -54,6 +54,7 @@ async function handler(request: Request) {
       .select('id')
       .eq('board_id', boardId)
       .eq('user_id', user.id)
+      .eq('status', 'accepted')
       .single()
 
     if (!membership) {
@@ -61,8 +62,11 @@ async function handler(request: Request) {
     }
   }
 
-  // Get active agent backend from config and dispatch
-  const backend = await getAgentBackend(supabase)
+  // Get active agent backend + model from config and dispatch
+  const [backend, model] = await Promise.all([
+    getAgentBackend(supabase),
+    getAgentModel(supabase),
+  ])
   const adapter = getActiveAdapter(backend)
 
   // Extract user's last message for trace metadata
@@ -83,7 +87,7 @@ async function handler(request: Request) {
       userId: user.id,
       sessionId: `board:${boardId}`,
       input: userInput,
-      tags: [`backend:${backend}`, `command:${commandType}`],
+      tags: [`backend:${backend}`, `command:${commandType}`, `model:${model}`],
       metadata: {
         boardId,
         backend,
@@ -99,6 +103,7 @@ async function handler(request: Request) {
     messages,
     boardId,
     verbose: verbose ?? false,
+    model,
     supabase,
   })
 }

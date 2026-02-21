@@ -44,3 +44,10 @@ export async function getAgentBackend(
   const backend = await getAppConfig<AgentBackend>(supabase, 'agent_backend')
   return backend ?? 'nextjs'
 }
+
+export async function getAgentModel(
+  supabase: SupabaseClient,
+): Promise<string> {
+  const model = await getAppConfig<string>(supabase, 'agent_model')
+  return model ?? 'claude-sonnet-4-5'
+}

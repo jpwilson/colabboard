@@ -240,6 +240,7 @@ export const ShapeRenderer = memo(function ShapeRenderer({
             stroke={stroke || '#1f2937'}
             strokeWidth={strokeWidth || 2}
             opacity={opacity}
+            hitStrokeWidth={16}
           />
         </Group>
       )
@@ -247,6 +248,13 @@ export const ShapeRenderer = memo(function ShapeRenderer({
     case 'freedraw':
       return (
         <Group {...commonGroupProps}>
+          {/* Invisible rect for hit detection — Line alone has a tiny hit area */}
+          <Rect
+            width={obj.width}
+            height={obj.height}
+            fill="transparent"
+            listening={true}
+          />
           <Line
             points={obj.points || []}
             stroke={stroke || '#1f2937'}

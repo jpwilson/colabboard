@@ -2,10 +2,13 @@ export type ObjectType = 'sticky_note' | 'rectangle' | 'circle' | 'line' | 'text
 
 export type UserRole = 'owner' | 'editor' | 'viewer'
 
+export type InvitationStatus = 'pending' | 'accepted' | 'declined'
+
 export type AgentBackend = 'nextjs' | 'docker'
 
 export interface AppConfig {
   agent_backend: AgentBackend
+  agent_model: string
 }
 
 export interface Board {
@@ -22,7 +25,10 @@ export interface BoardMember {
   board_id: string
   user_id: string
   role: UserRole
+  status: InvitationStatus
   invited_at: string
+  invited_by: string | null
+  message: string | null
 }
 
 export interface BoardObject {

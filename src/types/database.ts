@@ -15,26 +15,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_config: {
+        Row: {
+          key: string
+          updated_at: string | null
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       board_members: {
         Row: {
           board_id: string
           id: string
           invited_at: string
+          invited_by: string | null
+          message: string | null
           role: string
+          status: string
           user_id: string
         }
         Insert: {
           board_id: string
           id?: string
           invited_at?: string
+          invited_by?: string | null
+          message?: string | null
           role?: string
+          status?: string
           user_id: string
         }
         Update: {
           board_id?: string
           id?: string
           invited_at?: string
+          invited_by?: string | null
+          message?: string | null
           role?: string
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -121,6 +151,35 @@ export type Database = {
           owner_id?: string
           slug?: string
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boards_owner_profile_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          display_name?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

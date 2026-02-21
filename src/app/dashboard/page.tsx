@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createBoard, deleteBoard, renameBoard } from './actions'
+import { acceptInvitation, declineInvitation } from './invitation-actions'
 import { NewBoardButton } from './NewBoardButton'
 import { BoardCard } from './BoardCard'
+import { InvitationCard } from './InvitationCard'
 import { OrimLogo } from '@/components/ui/OrimLogo'
 import Link from 'next/link'
 
@@ -23,8 +25,49 @@ export default async function DashboardPage() {
     .from('board_members')
     .select('board_id')
     .eq('user_id', user.id)
+    .eq('status', 'accepted')
 
   const memberBoardIds = (memberRows || []).map((r) => r.board_id)
+
+  // Fetch pending invitations
+  const { data: pendingInvites } = await supabase
+    .from('board_members')
+    .select('board_id, invited_by, message, invited_at')
+    .eq('user_id', user.id)
+    .eq('status', 'pending')
+
+  // Get board info and inviter names for pending invitations
+  const pendingBoardIds = (pendingInvites || []).map((r) => r.board_id)
+  let invitationBoards: { id: string; name: string }[] = []
+  if (pendingBoardIds.length > 0) {
+    const { data } = await supabase
+      .from('boards')
+      .select('id, name')
+      .in('id', pendingBoardIds)
+    invitationBoards = data || []
+  }
+
+  const inviterIds = (pendingInvites || []).map((r) => r.invited_by).filter(Boolean) as string[]
+  let inviterProfiles: { id: string; display_name: string | null }[] = []
+  if (inviterIds.length > 0) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', inviterIds)
+    inviterProfiles = data || []
+  }
+
+  const invitations = (pendingInvites || []).map((invite) => {
+    const board = invitationBoards.find((b) => b.id === invite.board_id)
+    const inviter = inviterProfiles.find((p) => p.id === invite.invited_by)
+    return {
+      boardId: invite.board_id,
+      boardName: board?.name || 'Unknown Board',
+      inviterName: inviter?.display_name || null,
+      message: invite.message,
+      invitedAt: invite.invited_at,
+    }
+  })
 
   // Also include boards the user owns (they might not have a board_members row)
   const { data: boards } = await supabase
@@ -85,6 +128,28 @@ export default async function DashboardPage() {
 
       {/* Main content */}
       <main className="relative mx-auto max-w-6xl px-6 pt-24 pb-12">
+        {/* Pending Invitations */}
+        {invitations.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-xl font-bold text-slate-800">Invitations</h2>
+            <p className="mt-1 text-sm text-slate-500">You&apos;ve been invited to collaborate</p>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {invitations.map((inv) => (
+                <InvitationCard
+                  key={inv.boardId}
+                  boardId={inv.boardId}
+                  boardName={inv.boardName}
+                  inviterName={inv.inviterName}
+                  message={inv.message}
+                  invitedAt={inv.invitedAt}
+                  acceptAction={acceptInvitation}
+                  declineAction={declineInvitation}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Your Boards */}
         <div className="flex items-center justify-between">
           <div>

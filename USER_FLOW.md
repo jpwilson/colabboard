@@ -65,8 +65,12 @@ Dashboard `/dashboard` → Click "New Board"
 
 ```
 Board `/board/[slug]` → Click "Share" button
-  → Modal shows invite link: `https://claudeorim.vercel.app/board/[slug]/join`
-  → Copy link → Send to collaborator
+  → Share modal opens with:
+    - Copy invite link button
+    - Member list with role/status badges
+    - Invite by email form (owner only, with optional message)
+  → Owner invites by email → Creates pending invitation
+  → Invitee sees invitation on dashboard OR via share link
 ```
 
 **Auth state:** authenticated, must be board member
@@ -79,8 +83,18 @@ Board `/board/[slug]` → Click "Share" button
 Receive invite link → Open `/board/[slug]/join`
   → If not logged in: redirect to `/login?next=/board/[slug]/join`
   → After login: return to `/board/[slug]/join`
-  → Auto-added as board member (editor role)
-  → Redirect to `/board/[slug]`
+  → Accept/Decline page shown with board name and inviter info
+  → Accept → Added as board member (editor, accepted) → Redirect to `/board/[slug]`
+  → Decline → Marked as declined → Redirect to `/dashboard`
+  → Re-visit after decline → Accept/Decline shown again
+
+Email invitation flow:
+  Owner invites via Share modal → Pending row created
+  → Invitee sees invitation card on `/dashboard`
+  → Accept → Board appears in "Shared with You"
+  → Decline → Invitation dismissed
+
+Non-member accessing `/board/[slug]` directly → Redirected to `/board/[slug]/join`
 ```
 
 **Auth state:** must be authenticated (redirected to login if not)

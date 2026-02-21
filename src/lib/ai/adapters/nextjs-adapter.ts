@@ -14,12 +14,12 @@ export class NextJSAdapter implements AgentAdapter {
   readonly name = 'Next.js SDK (Vercel AI + Anthropic)'
 
   async chat(request: AgentChatRequest): Promise<Response> {
-    const { messages, boardId, verbose, supabase } = request
+    const { messages, boardId, verbose, model, supabase } = request
     const startTime = Date.now()
     const traceId = getActiveTraceId()
 
     const result = streamText({
-      model: anthropic('claude-sonnet-4-5'),
+      model: anthropic(model),
       system: buildSystemPrompt(boardId, verbose),
       messages: await convertToModelMessages(messages),
       tools: aiTools(boardId, supabase),

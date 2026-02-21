@@ -28,7 +28,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
     notFound()
   }
 
-  // Check membership (owner counts as member via RLS helper function)
+  // Check membership — only accepted members (or owner) can access the board
   const isMember =
     board.owner_id === user.id ||
     (
@@ -37,11 +37,12 @@ export default async function BoardPage({ params }: BoardPageProps) {
         .select('id')
         .eq('board_id', board.id)
         .eq('user_id', user.id)
+        .eq('status', 'accepted')
         .single()
     ).data !== null
 
   if (!isMember) {
-    notFound()
+    redirect(`/board/${board.slug}/join`)
   }
 
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous'

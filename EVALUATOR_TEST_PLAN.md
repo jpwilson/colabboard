@@ -26,7 +26,9 @@ Pre-submission sanity checklist. Maps to G4 Week 1 testing scenarios.
 ## Auth & Access
 
 - [x] Sign out → navigate to `/board/[slug]` → redirected to `/login`
-- [x] Copy share link → open in incognito → redirected to login → after login, join works
+- [x] Copy share link → open in incognito → redirected to login → after login, accept/decline page → accept joins board
+- [x] Non-member accessing `/board/[slug]` → redirected to join page (not 404)
+- [x] Invitation system: owner can invite by email, invitee sees invitation on dashboard
 - [x] OAuth (Google) login works on deployed app
 - [x] OAuth (GitHub) login works on deployed app
 

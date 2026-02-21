@@ -5,6 +5,7 @@ export interface AgentChatRequest {
   messages: UIMessage[]
   boardId: string
   verbose: boolean
+  model: string
   supabase: SupabaseClient
 }
 

@@ -38,6 +38,47 @@ export const STICKY_COLOR_NAMES: Record<string, string> = {
   '#fecaca': 'Red',
 }
 
+// Unified color palette used by all color pickers (toolbar, properties panel)
+// 6 columns × 4 rows = 24 colors: basics, vivid, pastel, more pastel
+export const UNIFIED_COLORS = [
+  // Row 1: basics
+  '#000000', '#4b5563', '#9ca3af', '#e2e8f0', '#f8fafc', '#ffffff',
+  // Row 2: vivid
+  '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6',
+  // Row 3: pastel (includes sticky note colors)
+  '#fecaca', '#fed7aa', '#fef08a', '#bbf7d0', '#bfdbfe', '#c4b5fd',
+  // Row 4: more pastel
+  '#fde68a', '#dcfce7', '#e0f2fe', '#fbcfe8', '#f1f5f9', '#ddd6fe',
+]
+
+// Human-readable names for all unified colors
+export const COLOR_NAMES: Record<string, string> = {
+  '#000000': 'Black',
+  '#4b5563': 'Dark gray',
+  '#9ca3af': 'Gray',
+  '#e2e8f0': 'Light gray',
+  '#f8fafc': 'Near white',
+  '#ffffff': 'White',
+  '#ef4444': 'Red',
+  '#f97316': 'Orange',
+  '#eab308': 'Yellow',
+  '#22c55e': 'Green',
+  '#3b82f6': 'Blue',
+  '#8b5cf6': 'Purple',
+  '#fecaca': 'Rose',
+  '#fed7aa': 'Peach',
+  '#fef08a': 'Lemon',
+  '#bbf7d0': 'Mint',
+  '#bfdbfe': 'Sky',
+  '#c4b5fd': 'Lavender',
+  '#fde68a': 'Amber',
+  '#dcfce7': 'Honeydew',
+  '#e0f2fe': 'Ice',
+  '#fbcfe8': 'Pink',
+  '#f1f5f9': 'Slate',
+  '#ddd6fe': 'Lilac',
+}
+
 export const STICKY_SIZES = [
   { label: 'S', width: 100, height: 100 },
   { label: 'M', width: 150, height: 150 },
