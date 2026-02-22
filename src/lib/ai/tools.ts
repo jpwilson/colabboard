@@ -637,6 +637,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
             })),
           }
         } catch (err) {
+          console.error('[drawSketch] Tool error:', err)
           return {
             action: 'create' as const,
             error: `Sketch generation failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -686,6 +687,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
             },
           }
         } catch (err) {
+          console.error('[generateSvgImage] Tool error:', err)
           return {
             action: 'create' as const,
             error: `SVG generation failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -698,11 +700,11 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
 
     create3DModel: tool({
       description:
-        'REQUIRED when user asks for anything "3D". Place an interactive 3D model on the board. Users can double-click to rotate and orbit the model. Built-in models: astronaut, robot, horse, duck, car, helmet, lantern. Or provide a custom GLB URL.',
+        'REQUIRED when user asks for anything "3D". Place an interactive 3D model on the board. Users can double-click to rotate and orbit the model. ONLY these models are available: astronaut, robot, horse, duck, car, helmet, lantern. NO geometric primitives (cube, sphere, cylinder) exist. If the user asks for a shape not in the list, pick the closest match or explain which models are available.',
       inputSchema: z.object({
         shape: z
           .enum(['astronaut', 'robot', 'horse', 'duck', 'car', 'helmet', 'lantern', 'custom'])
-          .describe('The 3D model to place. Use "custom" with modelUrl for external GLB files.'),
+          .describe('The 3D model to place. ONLY these options exist. Use "custom" with modelUrl for external GLB files.'),
         modelUrl: z
           .string()
           .optional()
@@ -793,6 +795,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
             },
           }
         } catch (err) {
+          console.error('[generateRealisticImage] Tool error:', err)
           return {
             action: 'create' as const,
             error: `Image generation failed: ${err instanceof Error ? err.message : String(err)}`,

@@ -375,13 +375,17 @@ export async function generateSketch(
   // Call Claude with SketchAgent prompt
   const prompt = SKETCH_USER_PROMPT.replace(/\{concept\}/g, concept)
 
+  console.log('[generateSketch] Starting sketch generation for:', concept)
+
   const result = await generateText({
-    model: anthropic('claude-sonnet-4-5-20250514'),
+    model: anthropic('claude-haiku-4-5-20251001'),
     system: SKETCH_SYSTEM_PROMPT,
     prompt,
     maxOutputTokens: 4000,
     stopSequences: ['</answer>'],
   })
+
+  console.log('[generateSketch] Got response, length:', result.text.length)
 
   const responseText = result.text + '</answer>'
 

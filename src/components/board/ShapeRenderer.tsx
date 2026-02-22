@@ -414,7 +414,11 @@ export const ShapeRenderer = memo(function ShapeRenderer({
 
     case 'model3d':
       return (
-        <Group {...commonGroupProps}>
+        <Group
+          {...commonGroupProps}
+          onDblClick={() => onDoubleClick(obj.id)}
+          onDblTap={() => onDoubleClick(obj.id)}
+        >
           <Rect
             width={obj.width}
             height={obj.height}

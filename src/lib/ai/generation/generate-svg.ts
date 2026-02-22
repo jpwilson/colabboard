@@ -2,6 +2,7 @@
  * SVG generation service — creates vector illustrations via Claude.
  *
  * Called directly by AI tools (server-side), not through HTTP routes.
+ * Uses Haiku for fast generation (~1-2s).
  */
 
 import { generateText } from 'ai'
@@ -30,17 +31,22 @@ export async function generateSvg(
     ? `Draw a ${concept} in ${style} style.`
     : `Draw a ${concept}.`
 
+  console.log('[generateSvg] Starting SVG generation for:', concept)
+
   const result = await generateText({
-    model: anthropic('claude-sonnet-4-5-20250514'),
+    model: anthropic('claude-haiku-4-5-20251001'),
     system: SVG_SYSTEM_PROMPT,
     prompt,
     maxOutputTokens: 2000,
   })
 
+  console.log('[generateSvg] Got response, length:', result.text.length)
+
   // Extract SVG from response (may be wrapped in markdown code blocks)
   let svg = result.text
   const svgMatch = svg.match(/<svg[\s\S]*?<\/svg>/)
   if (!svgMatch) {
+    console.error('[generateSvg] No SVG found in response:', svg.slice(0, 200))
     throw new Error('No valid SVG found in AI response')
   }
   svg = svgMatch[0]
@@ -54,5 +60,6 @@ export async function generateSvg(
   const base64 = Buffer.from(svg).toString('base64')
   const dataUrl = `data:image/svg+xml;base64,${base64}`
 
+  console.log('[generateSvg] Success, SVG size:', svg.length, 'bytes')
   return { dataUrl }
 }
