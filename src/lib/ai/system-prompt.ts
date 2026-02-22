@@ -1,6 +1,7 @@
 import { STICKY_COLORS } from '@/lib/shape-defaults'
+import { getTemplateInstructions } from '@/lib/ai/template-registry'
 
-export function buildSystemPrompt(boardId: string, verbose?: boolean): string {
+export function buildSystemPrompt(boardId: string, verbose?: boolean, domain?: string): string {
   const responseStyle = verbose
     ? `## Response Style
 - After executing tools, give a short summary (2-3 sentences max) of what was created or changed.
@@ -37,9 +38,11 @@ You can use any stroke color and width. Default is dark gray #1f2937 at width 3.
 
 ## Sticky Note Colors
 ${STICKY_COLORS.map((c, i) => {
-    const names = ['yellow', 'green', 'blue', 'pink', 'amber', 'purple', 'orange', 'red']
+    const names = ['golden', 'electric blue', 'crimson', 'emerald', 'hot orange', 'royal purple', 'magenta', 'teal']
     return `${c} (${names[i]})`
   }).join(', ')}
+Use white text (#ffffff) on dark sticky backgrounds (Electric Blue, Crimson, Emerald, Royal Purple, Magenta, Teal).
+Use dark text (#1f2937) on lighter sticky backgrounds (Golden, Hot Orange).
 
 ## Layout Rules
 - Sticky notes: 150×150px default. Grid spacing: 170px (20px gap).
@@ -58,47 +61,7 @@ This ensures new content is placed BELOW existing content, never overlapping.
 ## Template Patterns
 When asked for a template, FIRST call getBoardState, calculate startX and startY as described above, then create frames with colored sticky note titles inside. All y-coordinates below are RELATIVE — add startY to each. All x-coordinates use startX as base (add startX - 100 to each x value).
 
-**SWOT Analysis** (4 quadrants, 2×2 grid):
-- Strengths: frame at (startX, startY) 350×300 fill=#dcfce7, title "Strengths"
-- Weaknesses: frame at (startX+370, startY) 350×300 fill=#fecaca, title "Weaknesses"
-- Opportunities: frame at (startX, startY+320) 350×300 fill=#bfdbfe, title "Opportunities"
-- Threats: frame at (startX+370, startY+320) 350×300 fill=#fef08a, title "Threats"
-
-**Retrospective** (3 columns):
-- What went well: frame at (startX, startY) 300×400 fill=#dcfce7, title "Went Well"
-- What to improve: frame at (startX+320, startY) 300×400 fill=#fecaca, title "To Improve"
-- Action items: frame at (startX+640, startY) 300×400 fill=#bfdbfe, title "Actions"
-
-**Kanban Board** (3-4 columns):
-- To Do: frame at (startX, startY) 250×500 fill=#f1f5f9, title "To Do"
-- In Progress: frame at (startX+270, startY) 250×500 fill=#fef08a, title "In Progress"
-- Done: frame at (startX+540, startY) 250×500 fill=#dcfce7, title "Done"
-
-**Pros and Cons** (2 columns):
-- Pros: frame at (startX, startY) 350×400 fill=#dcfce7, title "Pros"
-- Cons: frame at (startX+370, startY) 350×400 fill=#fecaca, title "Cons"
-
-**Brainstorm / Mind Map** (radial layout):
-- Central topic: sticky note at (startX+300, startY+250) with the topic text
-- Ideas: 6-8 sticky notes in a circle around center, radius ~250px, various colors
-
-**Flowchart** (vertical flow with connectors):
-- Start: rounded_rectangle at (startX+200, startY) 150×60 fill=#dcfce7, text "Start"
-- Process: rectangle at (startX+175, startY+120) 200×80 fill=#bfdbfe, text "Process"
-- Decision: diamond at (startX+200, startY+260) 150×120 fill=#fef08a, text "Decision?"
-- End: rounded_rectangle at (startX+200, startY+440) 150×60 fill=#fecaca, text "End"
-- Connect each step to the next with arrow connectors
-
-**Timeline** (horizontal milestones):
-- 5 sticky notes at y=startY+100, spaced 200px apart starting at x=startX
-- Each labeled "Milestone 1" through "Milestone 5", alternating colors
-- A horizontal line connecting them at y=startY+175
-
-**Decision Matrix / Eisenhower** (2×2 labeled grid):
-- High Impact / Low Effort: frame at (startX, startY) 350×300 fill=#dcfce7, title "Do First"
-- High Impact / High Effort: frame at (startX+370, startY) 350×300 fill=#bfdbfe, title "Schedule"
-- Low Impact / Low Effort: frame at (startX, startY+320) 350×300 fill=#fef08a, title "Delegate"
-- Low Impact / High Effort: frame at (startX+370, startY+320) 350×300 fill=#fecaca, title "Eliminate"
+${getTemplateInstructions(domain || 'general')}${domain && domain !== 'general' ? `\n\n## General Templates (always available)\n${getTemplateInstructions('general')}` : ''}
 
 ## Behavior
 - ALWAYS call getBoardState FIRST before creating any objects. This is mandatory, not optional.

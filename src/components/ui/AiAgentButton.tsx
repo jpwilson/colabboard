@@ -10,6 +10,7 @@ import { useDraggable } from '@/hooks/useDraggable'
 import { useIdleAnimation } from '@/hooks/useIdleAnimation'
 import { BoardFAQ } from '@/components/board/BoardFAQ'
 import { BoardTour } from '@/components/board/BoardTour'
+import { getAllDomains, getDomainPack } from '@/lib/ai/template-registry'
 
 interface AiAgentPanelProps {
   boardId: string
@@ -61,6 +62,14 @@ export function AiAgentPanel({
   const [tourOpen, setTourOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [verbose, setVerbose] = useState(true)
+  const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg'>(() => {
+    if (typeof window === 'undefined') return 'md'
+    try {
+      const stored = localStorage.getItem('orim-chat-text-size')
+      if (stored === 'sm' || stored === 'md' || stored === 'lg') return stored
+    } catch { /* ignore */ }
+    return 'md'
+  })
   const [undoStack, setUndoStack] = useState<UndoGroup[]>([])
   const [redoStack, setRedoStack] = useState<UndoGroup[]>([])
   const [panelSize, setPanelSize] = useState<{ width: number; height: number }>(() => {
@@ -79,6 +88,29 @@ export function AiAgentPanel({
     } catch { /* ignore */ }
     return { width: 320, height: 480 }
   })
+  const handleTextSizeChange = useCallback((size: 'sm' | 'md' | 'lg') => {
+    setTextSize(size)
+    try { localStorage.setItem('orim-chat-text-size', size) } catch { /* ignore */ }
+  }, [])
+
+  const [selectedDomain, setSelectedDomain] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'general'
+    try {
+      const stored = localStorage.getItem('orim-chat-domain')
+      if (stored) return stored
+    } catch { /* ignore */ }
+    return 'general'
+  })
+  const handleDomainChange = useCallback((domainId: string) => {
+    setSelectedDomain(domainId)
+    try { localStorage.setItem('orim-chat-domain', domainId) } catch { /* ignore */ }
+  }, [])
+
+  // Text size CSS classes
+  const msgTextClass = textSize === 'sm' ? 'text-xs' : textSize === 'lg' ? 'text-base' : 'text-sm'
+  const pillTextClass = textSize === 'sm' ? 'text-[10px]' : textSize === 'lg' ? 'text-sm' : 'text-xs'
+  const headerTextClass = textSize === 'sm' ? 'text-sm' : textSize === 'lg' ? 'text-lg' : 'text-[15px]'
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const nextZRef = useRef(nextZIndex)
   const processedToolCalls = useRef(new Set<string>())
@@ -238,9 +270,9 @@ export function AiAgentPanel({
     () =>
       new DefaultChatTransport({
         api: '/api/ai/chat',
-        body: { boardId, verbose },
+        body: { boardId, verbose, domain: selectedDomain },
       }),
-    [boardId, verbose],
+    [boardId, verbose, selectedDomain],
   )
 
   const { messages, sendMessage, status } = useChat({
@@ -438,7 +470,7 @@ export function AiAgentPanel({
       {/* Expanded chat panel */}
       {open && (
         <div
-          className={`fixed z-[9999] flex flex-col rounded-2xl border border-white/20 bg-white/95 shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_20px_rgba(0,0,0,0.08)] backdrop-blur-xl ${isDragging ? 'select-none' : ''}`}
+          className={`fixed z-[9999] flex flex-col rounded-2xl border-2 border-slate-300 bg-white/95 shadow-[0_20px_60px_rgba(0,0,0,0.15),0_4px_20px_rgba(0,0,0,0.1)] backdrop-blur-xl ${isDragging ? 'select-none' : ''}`}
           style={{
             left: chatPosition.x,
             top: chatPosition.y,
@@ -448,7 +480,7 @@ export function AiAgentPanel({
           }}
         >
           {/* Header — drag handle */}
-          <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/50 px-4 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]" {...dragHandleProps}>
+          <div className="flex items-center justify-between border-b-2 border-slate-300 bg-slate-50/50 px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]" {...dragHandleProps}>
             <div className="flex items-center gap-2">
               <div style={{ perspective: '200px' }}>
                 <Image
@@ -466,17 +498,17 @@ export function AiAgentPanel({
                   }}
                 />
               </div>
-              <h3 className="font-nunito text-sm font-bold tracking-tight text-slate-800">Orim AI</h3>
+              <h3 className={`font-nunito font-bold tracking-tight text-slate-800 ${headerTextClass}`}>Orim AI</h3>
             </div>
             {/* Concise / Verbose toggle pill — centered */}
             <div className="group relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
               <div
-                className="relative flex h-5 w-[92px] cursor-pointer items-center rounded-full bg-slate-200/70 text-[10px] font-semibold"
+                className="relative flex h-6 w-[110px] cursor-pointer items-center rounded-full bg-slate-200/70 text-xs font-semibold"
                 onClick={() => setVerbose((v) => !v)}
               >
                 <div
-                  className={`absolute top-0.5 h-4 w-[44px] rounded-full transition-all duration-200 ${
-                    verbose ? 'left-[46px] bg-accent' : 'left-0.5 bg-accent'
+                  className={`absolute top-0.5 h-5 w-[53px] rounded-full transition-all duration-200 ${
+                    verbose ? 'left-[55px] bg-accent' : 'left-0.5 bg-accent'
                   }`}
                 />
                 <span className={`relative z-10 flex-1 text-center transition-colors ${!verbose ? 'text-slate-800' : 'text-slate-500'}`}>
@@ -494,29 +526,29 @@ export function AiAgentPanel({
               <button
                 onClick={handleUndo}
                 disabled={isLoading || undoStack.length === 0}
-                className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
                 title={undoStack.length > 0 ? `Undo (${undoStack.length} available)` : 'Nothing to undo'}
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
                 </svg>
               </button>
               <button
                 onClick={handleRedo}
                 disabled={isLoading || redoStack.length === 0}
-                className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
                 title={redoStack.length > 0 ? `Redo (${redoStack.length} available)` : 'Nothing to redo'}
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" />
                 </svg>
               </button>
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               >
                 <svg
-                className="h-4 w-4"
+                className="h-5 w-5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -532,72 +564,85 @@ export function AiAgentPanel({
             </div>
           </div>
 
-          {/* Messages */}
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto px-4 py-3"
-            style={{ minHeight: '100px' }}
-          >
-            {messages.length === 0 ? (
-              <p className="text-xs leading-relaxed text-slate-500">
-                Ask me to create, arrange, or manipulate objects on your
-                board. Try one of the suggestions below.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} />
-                ))}
-                {isLoading && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                    Thinking...
-                  </div>
-                )}
-                {errorMsg && (
-                  <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">
-                    {errorMsg}
+          {/* Content row: messages+suggestions+input | domain strip */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Main column */}
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              {/* Messages */}
+              <div
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto px-4 py-3"
+                style={{ minHeight: '100px' }}
+              >
+                {messages.length === 0 ? (
+                  <p className={`${msgTextClass} leading-relaxed text-slate-500`}>
+                    Ask me to create, arrange, or manipulate objects on your
+                    board. Try one of the suggestions below.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {messages.map((msg) => (
+                      <MessageBubble key={msg.id} message={msg} msgTextClass={msgTextClass} pillTextClass={pillTextClass} />
+                    ))}
+                    {isLoading && (
+                      <div className={`flex items-center gap-1.5 ${pillTextClass} text-slate-400`}>
+                        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
+                        Thinking...
+                      </div>
+                    )}
+                    {errorMsg && (
+                      <div className={`rounded-lg bg-red-50 px-3 py-2 ${pillTextClass} text-red-600`}>
+                        {errorMsg}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Suggestions — always visible */}
-          <SuggestionPills onSelect={handleSuggestion} disabled={isLoading} />
+              {/* Suggestions accordion */}
+              <SuggestionAccordion onSelect={handleSuggestion} disabled={isLoading} pillTextClass={pillTextClass} selectedDomain={selectedDomain} />
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="border-t border-slate-100 px-3 py-2">
-            <div className="flex gap-2">
-              <input
-                name="message"
-                type="text"
-                placeholder="Ask Orim..."
-                disabled={isLoading}
-                className="flex-1 rounded-xl bg-slate-50/80 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400/70 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50"
-                autoComplete="off"
-              />
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="rounded-xl bg-accent px-3 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-accent-dark hover:shadow disabled:opacity-50"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 19V5m-7 7l7-7 7 7"
+              {/* Input */}
+              <form onSubmit={handleSubmit} className="border-t border-slate-100 px-3 py-2">
+                <div className="flex gap-2">
+                  <input
+                    name="message"
+                    type="text"
+                    placeholder="Ask Orim..."
+                    disabled={isLoading}
+                    className={`flex-1 rounded-xl bg-slate-50/80 px-3 py-2.5 ${msgTextClass} text-slate-800 placeholder:text-slate-400/70 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50`}
+                    autoComplete="off"
                   />
-                </svg>
-              </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="rounded-xl bg-accent px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-accent-dark hover:shadow disabled:opacity-50"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 19V5m-7 7l7-7 7 7"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
+
+            {/* Domain strip — right side */}
+            <DomainStrip
+              selected={selectedDomain}
+              onSelect={handleDomainChange}
+              panelWidth={panelSize.width}
+            />
+          </div>
 
           {/* Resize handle */}
           <div
@@ -615,10 +660,10 @@ export function AiAgentPanel({
           <div className="border-t border-accent/30 bg-accent/5">
             <button
               onClick={() => setExtrasOpen(!extrasOpen)}
-              className="flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-accent-dark transition hover:bg-accent/10"
+              className="flex w-full items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-widest text-accent-dark transition hover:bg-accent/10"
             >
               <svg
-                className={`h-3 w-3 transition-transform ${extrasOpen ? 'rotate-180' : ''}`}
+                className={`h-3.5 w-3.5 transition-transform ${extrasOpen ? 'rotate-180' : ''}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
@@ -626,25 +671,47 @@ export function AiAgentPanel({
               {extrasOpen ? 'HIDE' : 'MORE'}
             </button>
             {extrasOpen && (
-              <div className="flex gap-2 px-3 pb-2" style={{ animation: 'fadeIn 0.15s ease-out' }}>
-                <button
-                  onClick={() => { setExtrasOpen(false); setTourOpen(true) }}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700 transition hover:bg-amber-100"
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                  </svg>
-                  Take a Tour
-                </button>
-                <button
-                  onClick={() => { setExtrasOpen(false); setFaqOpen(true) }}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700 transition hover:bg-amber-100"
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  FAQ
-                </button>
+              <div className="space-y-2 px-3 pb-3" style={{ animation: 'fadeIn 0.15s ease-out' }}>
+                {/* Text Size Widget */}
+                <div className="flex items-center justify-between rounded-lg bg-white/60 px-3 py-2">
+                  <span className="text-xs font-medium text-slate-500">Text Size</span>
+                  <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-0.5">
+                    {(['sm', 'md', 'lg'] as const).map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => handleTextSizeChange(size)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                          textSize === size
+                            ? 'bg-primary text-slate-800 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        {size === 'sm' ? 'S' : size === 'md' ? 'M' : 'L'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Tour & FAQ */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setExtrasOpen(false); setTourOpen(true) }}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-700 transition hover:bg-amber-100"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    Take a Tour
+                  </button>
+                  <button
+                    onClick={() => { setExtrasOpen(false); setFaqOpen(true) }}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-700 transition hover:bg-amber-100"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    FAQ
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -656,16 +723,16 @@ export function AiAgentPanel({
         <div className="fixed bottom-6 right-6 z-[9999]" data-tour-step="ai-hub">
           <button
             onClick={() => { setOpen(true); resetIdleTimer() }}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-[0_8px_30px_rgba(0,0,0,0.15),0_2px_8px_rgba(0,0,0,0.1)] transition-all hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(0,0,0,0.2),0_4px_12px_rgba(0,0,0,0.12)]"
+            className="flex h-16 w-16 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-[0_8px_30px_rgba(0,0,0,0.15),0_2px_8px_rgba(0,0,0,0.1)] transition-all hover:bg-white/90 hover:shadow-[0_12px_40px_rgba(0,0,0,0.2),0_4px_12px_rgba(0,0,0,0.12)]"
             title="Ask Orim AI"
             style={{ perspective: '200px' }}
           >
             <Image
               src="/AIBot1.png"
               alt="Orim AI"
-              width={36}
-              height={36}
-              className="h-9 w-9"
+              width={42}
+              height={42}
+              className="h-[42px] w-[42px]"
               style={{
                 animation: idleAnimation
                   ? idleAnimation
@@ -689,46 +756,6 @@ export function AiAgentPanel({
   )
 }
 
-const SUGGESTION_CATEGORIES = [
-  {
-    label: 'Create',
-    commands: [
-      { label: 'SWOT Analysis', prompt: 'Create a SWOT analysis template' },
-      { label: 'Kanban Board', prompt: 'Create a Kanban board with To Do, In Progress, and Done columns' },
-      { label: 'Retrospective', prompt: 'Create a retrospective with Went Well, To Improve, and Actions' },
-      { label: 'Mind Map', prompt: 'Create a mind map with a central topic and 6 branching ideas' },
-      { label: 'Flowchart', prompt: 'Create a flowchart with Start, Process, Decision, and End nodes' },
-      { label: 'Timeline', prompt: 'Create a horizontal timeline with 5 milestones' },
-      { label: 'Pros & Cons', prompt: 'Create a pros and cons template' },
-      { label: 'Decision Matrix', prompt: 'Create a 2x2 decision matrix with Impact vs Effort axes' },
-    ],
-  },
-  {
-    label: 'Edit',
-    commands: [
-      { label: 'Change colors', prompt: 'I want to change the color of some objects on the board' },
-      { label: 'Resize objects', prompt: 'I want to resize some objects on the board' },
-      { label: 'Move objects', prompt: 'I want to move some objects on the board' },
-      { label: 'Duplicate all', prompt: 'Duplicate all sticky notes and place copies next to the originals' },
-      { label: 'Update text', prompt: 'I want to update the text on a sticky note' },
-      { label: 'Add labels', prompt: 'Add a text label next to each shape on the board' },
-      { label: 'Delete all', prompt: 'Delete all objects on the board' },
-    ],
-  },
-  {
-    label: 'Layout',
-    commands: [
-      { label: 'Grid', prompt: 'Arrange all sticky notes in a neat grid' },
-      { label: 'Horizontal row', prompt: 'Line up all objects in a horizontal row' },
-      { label: 'Vertical column', prompt: 'Stack all objects in a vertical column' },
-      { label: 'Distribute evenly', prompt: 'Distribute all objects evenly with equal spacing' },
-      { label: 'Sort by color', prompt: 'Group and arrange objects by their color' },
-      { label: 'Compact', prompt: 'Move all objects closer together to reduce whitespace' },
-      { label: 'Summarize', prompt: 'Describe what is currently on the board' },
-    ],
-  },
-]
-
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   Create: (
     <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -747,58 +774,154 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   ),
 }
 
-function SuggestionPills({
+function DomainStrip({
+  selected,
+  onSelect,
+  panelWidth,
+}: {
+  selected: string
+  onSelect: (id: string) => void
+  panelWidth: number
+}) {
+  const domains = getAllDomains()
+  const showLabels = panelWidth >= 420
+
+  return (
+    <div className="flex flex-col items-center gap-1 border-l border-slate-200 bg-slate-50/50 px-1.5 py-3">
+      {domains.map((d) => (
+        <button
+          key={d.id}
+          onClick={() => onSelect(d.id)}
+          className={`group relative flex items-center justify-center rounded-lg transition-all ${
+            showLabels ? 'w-full gap-1.5 px-2 py-1.5' : 'h-9 w-9 p-0'
+          } ${
+            selected === d.id
+              ? 'bg-primary/15 text-primary-dark shadow-sm ring-1 ring-primary/30'
+              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+          }`}
+          title={d.name}
+        >
+          <span className="text-base leading-none">{d.icon}</span>
+          {showLabels && (
+            <span className="truncate text-[10px] font-semibold leading-tight">
+              {d.name.length > 8 ? d.name.slice(0, 7) + '\u2026' : d.name}
+            </span>
+          )}
+          {/* Tooltip on hover (icon-only mode) */}
+          {!showLabels && (
+            <span className="pointer-events-none absolute right-full z-10 mr-2 whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+              {d.name}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SuggestionAccordion({
   onSelect,
   disabled,
+  pillTextClass,
+  selectedDomain,
 }: {
   onSelect: (prompt: string) => void
   disabled: boolean
+  pillTextClass: string
+  selectedDomain: string
 }) {
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const domainPack = getDomainPack(selectedDomain)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    () => new Set(['Create', 'Edit', 'Layout']),
+  )
+  const [suggestionsVisible, setSuggestionsVisible] = useState(true)
+
+  const categories = useMemo(() => {
+    if (!domainPack) return []
+    return [
+      {
+        label: 'Create',
+        commands: domainPack.templates.map((t) => ({
+          label: t.name,
+          prompt: t.prompt,
+        })),
+      },
+      { label: 'Edit', commands: domainPack.editPrompts },
+      { label: 'Layout', commands: domainPack.layoutPrompts },
+    ]
+  }, [domainPack])
+
+  const toggleCategory = useCallback((label: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }, [])
+
+  const toggleAll = useCallback(() => {
+    setSuggestionsVisible((prev) => {
+      if (prev) return false
+      setExpandedCategories(new Set(['Create', 'Edit', 'Layout']))
+      return true
+    })
+  }, [])
+
+  const labelClass = pillTextClass === 'text-sm' ? 'text-xs' : pillTextClass === 'text-xs' ? 'text-[10px]' : 'text-[9px]'
 
   return (
-    <div className="border-t border-slate-100 px-3 py-2">
-      <p className="font-nunito mb-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400/80">
+    <div className="border-t border-slate-100">
+      {/* Master toggle */}
+      <button
+        onClick={toggleAll}
+        className={`flex w-full items-center gap-1.5 px-3 py-1.5 ${labelClass} font-bold uppercase tracking-widest text-slate-400/80 transition hover:text-slate-600`}
+      >
+        <svg
+          className={`h-3 w-3 transition-transform ${suggestionsVisible ? 'rotate-0' : '-rotate-90'}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
         Suggestions
-      </p>
-      {/* Category tabs */}
-      <div className="mb-1.5 flex gap-1.5">
-        {SUGGESTION_CATEGORIES.map((cat) => (
-          <button
-            key={cat.label}
-            onClick={() =>
-              setActiveCategory(
-                activeCategory === cat.label ? null : cat.label,
-              )
-            }
-            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold tracking-wide transition-all ${
-              activeCategory === cat.label
-                ? 'bg-primary text-slate-800 shadow-sm'
-                : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-700'
-            }`}
-          >
-            {CATEGORY_ICONS[cat.label]}
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      </button>
 
-      {/* Command pills for active category */}
-      {activeCategory && (
-        <div className="flex flex-wrap gap-1.5">
-          {SUGGESTION_CATEGORIES.find(
-            (c) => c.label === activeCategory,
-          )?.commands.map((cmd) => (
-            <button
-              key={cmd.label}
-              onClick={() => {
-                if (!disabled) onSelect(cmd.prompt)
-              }}
-              disabled={disabled}
-              className="rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50"
-            >
-              {cmd.label}
-            </button>
+      {suggestionsVisible && (
+        <div className="max-h-48 overflow-y-auto px-3 pb-2" style={{ scrollbarWidth: 'thin' }}>
+          {categories.map((cat) => (
+            <div key={cat.label} className="mb-1.5">
+              {/* Category header */}
+              <button
+                onClick={() => toggleCategory(cat.label)}
+                className={`flex w-full items-center gap-1 py-1 ${pillTextClass} font-semibold text-slate-500 transition hover:text-slate-700`}
+              >
+                <svg
+                  className={`h-2.5 w-2.5 transition-transform ${expandedCategories.has(cat.label) ? 'rotate-0' : '-rotate-90'}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+                {CATEGORY_ICONS[cat.label]}
+                <span className="tracking-wide">{cat.label}</span>
+                <span className="ml-auto text-slate-300">{cat.commands.length}</span>
+              </button>
+
+              {/* Command pills */}
+              {expandedCategories.has(cat.label) && (
+                <div className="flex flex-wrap gap-1 pb-1 pl-4">
+                  {cat.commands.map((cmd) => (
+                    <button
+                      key={cmd.label}
+                      onClick={() => { if (!disabled) onSelect(cmd.prompt) }}
+                      disabled={disabled}
+                      className={`rounded-full bg-slate-50 px-2 py-0.5 ${pillTextClass} font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50`}
+                    >
+                      {cmd.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -806,11 +929,11 @@ function SuggestionPills({
   )
 }
 
-function MessageBubble({ message }: { message: UIMessage }) {
+function MessageBubble({ message, msgTextClass, pillTextClass }: { message: UIMessage; msgTextClass: string; pillTextClass: string }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary-dark px-3 py-2 text-xs leading-relaxed text-white">
+        <div className={`max-w-[85%] rounded-2xl rounded-br-sm bg-primary-dark px-3 py-2 ${msgTextClass} leading-relaxed text-white`}>
           {message.parts.map((part, i) =>
             part.type === 'text' ? <span key={i}>{part.text}</span> : null,
           )}
@@ -844,13 +967,13 @@ function MessageBubble({ message }: { message: UIMessage }) {
         {textParts.map((text, i) => (
           <div
             key={i}
-            className="rounded-2xl rounded-bl-sm bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-700"
+            className={`rounded-2xl rounded-bl-sm bg-slate-50 px-3 py-2 ${msgTextClass} leading-relaxed text-slate-700`}
           >
             {text}
           </div>
         ))}
         {toolCount > 0 && (
-          <div className="text-[10px] text-slate-400">
+          <div className={`${pillTextClass} text-slate-400`}>
             Executed {toolCount} action{toolCount > 1 ? 's' : ''}
           </div>
         )}

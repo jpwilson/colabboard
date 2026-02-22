@@ -4,6 +4,7 @@ import { memo } from 'react'
 import { Rect, Circle, Ellipse, RegularPolygon, Star, Arrow, Line, Group, Text } from 'react-konva'
 import type Konva from 'konva'
 import type { CanvasObject } from '@/lib/board-sync'
+import { getContrastTextColor } from '@/lib/shape-defaults'
 
 interface ShapeRendererProps {
   obj: CanvasObject
@@ -78,7 +79,7 @@ export const ShapeRenderer = memo(function ShapeRenderer({
               text={obj.text || ''}
               fontSize={14}
               fontFamily={obj.fontFamily || 'sans-serif'}
-              fill="#1f2937"
+              fill={getContrastTextColor(fill || '#EAB308')}
               lineHeight={1.4}
             />
           )}

@@ -18,10 +18,10 @@ describe('buildSystemPrompt', () => {
     })
 
     it('includes sticky note color palette', () => {
-      expect(prompt).toContain('#fef08a')
-      expect(prompt).toContain('yellow')
-      expect(prompt).toContain('#bbf7d0')
-      expect(prompt).toContain('green')
+      expect(prompt).toContain('#EAB308')
+      expect(prompt).toContain('golden')
+      expect(prompt).toContain('#0066FF')
+      expect(prompt).toContain('electric blue')
     })
 
     it('has SWOT template instructions', () => {

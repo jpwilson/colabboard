@@ -38,12 +38,12 @@ describe('PropertiesPanel', () => {
   it('shows correct type label for sticky note', () => {
     render(
       <PropertiesPanel
-        selectedObject={makeObject({ type: 'sticky_note', fill: '#fef08a' })}
+        selectedObject={makeObject({ type: 'sticky_note', fill: '#EAB308' })}
         onUpdate={vi.fn()}
         objectScreenPosition={{ leftX: 100, rightX: 300, y: 200 }}
       />,
     )
-    expect(screen.getByText('Edit your yellow sticky note')).toBeInTheDocument()
+    expect(screen.getByText('Edit your golden sticky note')).toBeInTheDocument()
   })
 
   it('shows correct type label for connector', () => {
@@ -161,7 +161,7 @@ describe('PropertiesPanel', () => {
 
     rerender(
       <PropertiesPanel
-        selectedObject={makeObject({ type: 'sticky_note', fill: '#fef08a' })}
+        selectedObject={makeObject({ type: 'sticky_note', fill: '#EAB308' })}
         onUpdate={vi.fn()}
         objectScreenPosition={{ leftX: 100, rightX: 300, y: 200 }}
       />,
@@ -175,7 +175,7 @@ describe('PropertiesPanel', () => {
     const onUpdate = vi.fn()
     render(
       <PropertiesPanel
-        selectedObject={makeObject({ id: 'sticky-1', type: 'sticky_note', fill: '#fef08a', width: 150, height: 150 })}
+        selectedObject={makeObject({ id: 'sticky-1', type: 'sticky_note', fill: '#EAB308', width: 150, height: 150 })}
         onUpdate={onUpdate}
         objectScreenPosition={{ leftX: 100, rightX: 300, y: 200 }}
       />,
@@ -193,7 +193,7 @@ describe('PropertiesPanel', () => {
   it('shows font selector for sticky notes only', () => {
     const { rerender } = render(
       <PropertiesPanel
-        selectedObject={makeObject({ type: 'sticky_note', fill: '#fef08a' })}
+        selectedObject={makeObject({ type: 'sticky_note', fill: '#EAB308' })}
         onUpdate={vi.fn()}
         objectScreenPosition={{ leftX: 100, rightX: 300, y: 200 }}
       />,

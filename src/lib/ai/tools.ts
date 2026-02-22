@@ -331,7 +331,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       description: 'Change the fill color of an object.',
       inputSchema: z.object({
         objectId: z.string().describe('ID of the object to recolor'),
-        color: z.string().describe('New hex color (e.g. #fef08a)'),
+        color: z.string().describe('New hex color (e.g. #EAB308)'),
       }),
       execute: async ({ objectId, color }) => ({
         action: 'update' as const,

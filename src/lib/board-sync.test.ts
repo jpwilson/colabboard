@@ -12,7 +12,7 @@ describe('board-sync', () => {
     id: 'obj-1',
     board_id: 'board-1',
     type: 'sticky_note',
-    data: { fill: '#fef08a', text: 'Hello' },
+    data: { fill: '#EAB308', text: 'Hello' },
     x: 100,
     y: 200,
     width: 150,
@@ -33,7 +33,7 @@ describe('board-sync', () => {
         y: 200,
         width: 150,
         height: 150,
-        fill: '#fef08a',
+        fill: '#EAB308',
         text: 'Hello',
         z_index: 0,
         updated_at: '2026-01-01T00:00:00.000Z',
@@ -220,7 +220,7 @@ describe('board-sync', () => {
         y: 200,
         width: 150,
         height: 150,
-        fill: '#fef08a',
+        fill: '#EAB308',
         text: 'Hello',
         z_index: 0,
         updated_at: '2026-01-01T00:00:00.000Z',
@@ -230,7 +230,7 @@ describe('board-sync', () => {
 
       expect(result.board_id).toBe('board-1')
       expect(result.created_by).toBe('user-1')
-      expect(result.data).toEqual({ fill: '#fef08a', text: 'Hello' })
+      expect(result.data).toEqual({ fill: '#EAB308', text: 'Hello' })
     })
 
     it('serializes extended properties into data', () => {

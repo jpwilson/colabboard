@@ -105,7 +105,7 @@ async function createEvalBoard(evalCase: EvalCase): Promise<string> {
       height: obj.height,
       data: {
         text: obj.text,
-        fill: obj.fill ?? '#fef08a',
+        fill: obj.fill ?? '#EAB308',
       },
       z_index: 0,
       created_by: evalUser.id,

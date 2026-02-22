@@ -12,7 +12,7 @@ function defaultProps(overrides: Partial<Parameters<typeof Toolbar>[0]> = {}) {
   return {
     tool: 'select' as Tool,
     shapeTool: 'rectangle' as ShapeTool,
-    stickyColor: '#fef08a',
+    stickyColor: '#EAB308',
     selectedIds: [] as string[],
     onToolChange: vi.fn(),
     onShapeToolChange: vi.fn(),
