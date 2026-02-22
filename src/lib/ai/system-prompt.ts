@@ -38,9 +38,11 @@ You can use any stroke color and width. Default is dark gray #1f2937 at width 3.
 
 ## Sticky Note Colors
 ${STICKY_COLORS.map((c, i) => {
-    const names = ['yellow', 'green', 'blue', 'pink', 'amber', 'purple', 'orange', 'red']
+    const names = ['golden', 'electric blue', 'crimson', 'emerald', 'hot orange', 'royal purple', 'magenta', 'teal']
     return `${c} (${names[i]})`
   }).join(', ')}
+Use white text (#ffffff) on dark sticky backgrounds (Electric Blue, Crimson, Emerald, Royal Purple, Magenta, Teal).
+Use dark text (#1f2937) on lighter sticky backgrounds (Golden, Hot Orange).
 
 ## Layout Rules
 - Sticky notes: 150×150px default. Grid spacing: 170px (20px gap).

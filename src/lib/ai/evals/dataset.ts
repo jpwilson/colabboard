@@ -112,7 +112,7 @@ export const EVAL_DATASET: EvalCase[] = [
         y: 100,
         width: 150,
         height: 150,
-        fill: '#fef08a',
+        fill: '#EAB308',
       },
       {
         type: 'sticky_note',
@@ -121,7 +121,7 @@ export const EVAL_DATASET: EvalCase[] = [
         y: 100,
         width: 150,
         height: 150,
-        fill: '#fef08a',
+        fill: '#EAB308',
       },
     ],
   },

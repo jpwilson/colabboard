@@ -9,7 +9,7 @@ describe('Canvas operations', () => {
       y: Math.random() * 5000,
       width: 150,
       height: 150,
-      fill: '#fef08a',
+      fill: '#EAB308',
       text: `Note ${i}`,
     }))
   })

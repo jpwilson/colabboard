@@ -13,7 +13,7 @@ import { Toolbar, type Tool, type ShapeTool } from './Toolbar'
 import { PropertiesPanel } from './PropertiesPanel'
 import { ConnectionIndicator } from './ConnectionIndicator'
 import { AiAgentPanel } from '@/components/ui/AiAgentButton'
-import { SHAPE_DEFAULTS, STICKY_COLORS } from '@/lib/shape-defaults'
+import { SHAPE_DEFAULTS, STICKY_COLORS, getContrastTextColor } from '@/lib/shape-defaults'
 import type { CanvasObject, ShapeType } from '@/lib/board-sync'
 
 function generateId() {
@@ -656,7 +656,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       textarea.style.height = `${(obj.height - padding) * stageScale}px`
       textarea.style.fontSize = `${baseFontSize * stageScale}px`
       textarea.style.fontFamily = obj.fontFamily || 'sans-serif'
-      textarea.style.color = isText ? (obj.fill || '#1f2937') : '#1f2937'
+      textarea.style.color = isText ? (obj.fill || '#1f2937') : getContrastTextColor(obj.fill || '#EAB308')
       textarea.style.border = 'none'
       textarea.style.padding = '0'
       textarea.style.margin = '0'

@@ -91,7 +91,7 @@ async def test_chat_tool_call_event():
                         "text": "Hello",
                         "x": 100, "y": 100,
                         "width": 150, "height": 150,
-                        "fill": "#fef08a",
+                        "fill": "#EAB308",
                         "z_index": 0,
                         "updated_at": "2024-01-01T00:00:00Z",
                     },

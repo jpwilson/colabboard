@@ -14,7 +14,7 @@ const mockSupabase = {
               y: 100,
               width: 150,
               height: 150,
-              data: { text: 'Hello', fill: '#fef08a' },
+              data: { text: 'Hello', fill: '#EAB308' },
               z_index: 0,
             },
           ],
@@ -54,12 +54,12 @@ describe('aiTools', () => {
 
     it('accepts custom position and color', async () => {
       const result = await tools.createStickyNote.execute(
-        { text: 'Test', x: 200, y: 300, color: '#bbf7d0' },
+        { text: 'Test', x: 200, y: 300, color: '#0066FF' },
         { toolCallId: 't2', messages: [], abortSignal: undefined as never },
       )
       expect(result.object.x).toBe(200)
       expect(result.object.y).toBe(300)
-      expect(result.object.fill).toBe('#bbf7d0')
+      expect(result.object.fill).toBe('#0066FF')
     })
   })
 
@@ -162,12 +162,12 @@ describe('aiTools', () => {
   describe('changeColor', () => {
     it('returns an update action with new fill color', async () => {
       const result = await tools.changeColor.execute(
-        { objectId: 'obj-1', color: '#bbf7d0' },
+        { objectId: 'obj-1', color: '#0066FF' },
         { toolCallId: 't11', messages: [], abortSignal: undefined as never },
       )
       expect(result.action).toBe('update')
       expect(result.id).toBe('obj-1')
-      expect(result.updates).toEqual({ fill: '#bbf7d0' })
+      expect(result.updates).toEqual({ fill: '#0066FF' })
     })
   })
 

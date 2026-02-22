@@ -564,72 +564,85 @@ export function AiAgentPanel({
             </div>
           </div>
 
-          {/* Messages */}
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto px-4 py-3"
-            style={{ minHeight: '100px' }}
-          >
-            {messages.length === 0 ? (
-              <p className={`${msgTextClass} leading-relaxed text-slate-500`}>
-                Ask me to create, arrange, or manipulate objects on your
-                board. Try one of the suggestions below.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} msgTextClass={msgTextClass} pillTextClass={pillTextClass} />
-                ))}
-                {isLoading && (
-                  <div className={`flex items-center gap-1.5 ${pillTextClass} text-slate-400`}>
-                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
-                    Thinking...
-                  </div>
-                )}
-                {errorMsg && (
-                  <div className={`rounded-lg bg-red-50 px-3 py-2 ${pillTextClass} text-red-600`}>
-                    {errorMsg}
+          {/* Content row: messages+suggestions+input | domain strip */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Main column */}
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              {/* Messages */}
+              <div
+                ref={scrollRef}
+                className="flex-1 overflow-y-auto px-4 py-3"
+                style={{ minHeight: '100px' }}
+              >
+                {messages.length === 0 ? (
+                  <p className={`${msgTextClass} leading-relaxed text-slate-500`}>
+                    Ask me to create, arrange, or manipulate objects on your
+                    board. Try one of the suggestions below.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {messages.map((msg) => (
+                      <MessageBubble key={msg.id} message={msg} msgTextClass={msgTextClass} pillTextClass={pillTextClass} />
+                    ))}
+                    {isLoading && (
+                      <div className={`flex items-center gap-1.5 ${pillTextClass} text-slate-400`}>
+                        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
+                        Thinking...
+                      </div>
+                    )}
+                    {errorMsg && (
+                      <div className={`rounded-lg bg-red-50 px-3 py-2 ${pillTextClass} text-red-600`}>
+                        {errorMsg}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Suggestions — always visible */}
-          <SuggestionPills onSelect={handleSuggestion} disabled={isLoading} pillTextClass={pillTextClass} selectedDomain={selectedDomain} onDomainChange={handleDomainChange} />
+              {/* Suggestions accordion */}
+              <SuggestionAccordion onSelect={handleSuggestion} disabled={isLoading} pillTextClass={pillTextClass} selectedDomain={selectedDomain} />
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="border-t border-slate-100 px-3 py-2">
-            <div className="flex gap-2">
-              <input
-                name="message"
-                type="text"
-                placeholder="Ask Orim..."
-                disabled={isLoading}
-                className={`flex-1 rounded-xl bg-slate-50/80 px-3 py-2.5 ${msgTextClass} text-slate-800 placeholder:text-slate-400/70 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50`}
-                autoComplete="off"
-              />
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="rounded-xl bg-accent px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-accent-dark hover:shadow disabled:opacity-50"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 19V5m-7 7l7-7 7 7"
+              {/* Input */}
+              <form onSubmit={handleSubmit} className="border-t border-slate-100 px-3 py-2">
+                <div className="flex gap-2">
+                  <input
+                    name="message"
+                    type="text"
+                    placeholder="Ask Orim..."
+                    disabled={isLoading}
+                    className={`flex-1 rounded-xl bg-slate-50/80 px-3 py-2.5 ${msgTextClass} text-slate-800 placeholder:text-slate-400/70 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-50`}
+                    autoComplete="off"
                   />
-                </svg>
-              </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="rounded-xl bg-accent px-3 py-2.5 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-accent-dark hover:shadow disabled:opacity-50"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 19V5m-7 7l7-7 7 7"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
+
+            {/* Domain strip — right side */}
+            <DomainStrip
+              selected={selectedDomain}
+              onSelect={handleDomainChange}
+              panelWidth={panelSize.width}
+            />
+          </div>
 
           {/* Resize handle */}
           <div
@@ -761,24 +774,68 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   ),
 }
 
-function SuggestionPills({
+function DomainStrip({
+  selected,
+  onSelect,
+  panelWidth,
+}: {
+  selected: string
+  onSelect: (id: string) => void
+  panelWidth: number
+}) {
+  const domains = getAllDomains()
+  const showLabels = panelWidth >= 420
+
+  return (
+    <div className="flex flex-col items-center gap-1 border-l border-slate-200 bg-slate-50/50 px-1.5 py-3">
+      {domains.map((d) => (
+        <button
+          key={d.id}
+          onClick={() => onSelect(d.id)}
+          className={`group relative flex items-center justify-center rounded-lg transition-all ${
+            showLabels ? 'w-full gap-1.5 px-2 py-1.5' : 'h-9 w-9 p-0'
+          } ${
+            selected === d.id
+              ? 'bg-primary/15 text-primary-dark shadow-sm ring-1 ring-primary/30'
+              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+          }`}
+          title={d.name}
+        >
+          <span className="text-base leading-none">{d.icon}</span>
+          {showLabels && (
+            <span className="truncate text-[10px] font-semibold leading-tight">
+              {d.name.length > 8 ? d.name.slice(0, 7) + '\u2026' : d.name}
+            </span>
+          )}
+          {/* Tooltip on hover (icon-only mode) */}
+          {!showLabels && (
+            <span className="pointer-events-none absolute right-full z-10 mr-2 whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+              {d.name}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SuggestionAccordion({
   onSelect,
   disabled,
   pillTextClass,
   selectedDomain,
-  onDomainChange,
 }: {
   onSelect: (prompt: string) => void
   disabled: boolean
   pillTextClass: string
   selectedDomain: string
-  onDomainChange: (domainId: string) => void
 }) {
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const domains = getAllDomains()
   const domainPack = getDomainPack(selectedDomain)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    () => new Set(['Create', 'Edit', 'Layout']),
+  )
+  const [suggestionsVisible, setSuggestionsVisible] = useState(true)
 
-  // Build suggestion categories from domain pack
   const categories = useMemo(() => {
     if (!domainPack) return []
     return [
@@ -794,69 +851,77 @@ function SuggestionPills({
     ]
   }, [domainPack])
 
+  const toggleCategory = useCallback((label: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }, [])
+
+  const toggleAll = useCallback(() => {
+    setSuggestionsVisible((prev) => {
+      if (prev) return false
+      setExpandedCategories(new Set(['Create', 'Edit', 'Layout']))
+      return true
+    })
+  }, [])
+
   const labelClass = pillTextClass === 'text-sm' ? 'text-xs' : pillTextClass === 'text-xs' ? 'text-[10px]' : 'text-[9px]'
 
   return (
-    <div className="border-t border-slate-100 px-3 py-2">
-      {/* Domain selector */}
-      <div className="mb-2 flex gap-1 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-        {domains.map((d) => (
-          <button
-            key={d.id}
-            onClick={() => { onDomainChange(d.id); setActiveCategory(null) }}
-            className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 ${pillTextClass} font-medium whitespace-nowrap transition-all ${
-              selectedDomain === d.id
-                ? 'bg-primary/20 text-primary-dark shadow-sm ring-1 ring-primary/30'
-                : 'text-slate-400 hover:bg-slate-100/80 hover:text-slate-600'
-            }`}
-          >
-            <span>{d.icon}</span>
-            {d.name}
-          </button>
-        ))}
-      </div>
-
-      <p className={`font-nunito mb-1.5 ${labelClass} font-bold uppercase tracking-widest text-slate-400/80`}>
+    <div className="border-t border-slate-100">
+      {/* Master toggle */}
+      <button
+        onClick={toggleAll}
+        className={`flex w-full items-center gap-1.5 px-3 py-1.5 ${labelClass} font-bold uppercase tracking-widest text-slate-400/80 transition hover:text-slate-600`}
+      >
+        <svg
+          className={`h-3 w-3 transition-transform ${suggestionsVisible ? 'rotate-0' : '-rotate-90'}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
         Suggestions
-      </p>
-      {/* Category tabs */}
-      <div className="mb-1.5 flex gap-1.5">
-        {categories.map((cat) => (
-          <button
-            key={cat.label}
-            onClick={() =>
-              setActiveCategory(
-                activeCategory === cat.label ? null : cat.label,
-              )
-            }
-            className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${pillTextClass} font-semibold tracking-wide transition-all ${
-              activeCategory === cat.label
-                ? 'bg-primary text-slate-800 shadow-sm'
-                : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-700'
-            }`}
-          >
-            {CATEGORY_ICONS[cat.label]}
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      </button>
 
-      {/* Command pills for active category */}
-      {activeCategory && (
-        <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
-          {categories.find(
-            (c) => c.label === activeCategory,
-          )?.commands.map((cmd) => (
-            <button
-              key={cmd.label}
-              onClick={() => {
-                if (!disabled) onSelect(cmd.prompt)
-              }}
-              disabled={disabled}
-              className={`rounded-full bg-slate-50 px-2.5 py-1 ${pillTextClass} font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50`}
-            >
-              {cmd.label}
-            </button>
+      {suggestionsVisible && (
+        <div className="max-h-48 overflow-y-auto px-3 pb-2" style={{ scrollbarWidth: 'thin' }}>
+          {categories.map((cat) => (
+            <div key={cat.label} className="mb-1.5">
+              {/* Category header */}
+              <button
+                onClick={() => toggleCategory(cat.label)}
+                className={`flex w-full items-center gap-1 py-1 ${pillTextClass} font-semibold text-slate-500 transition hover:text-slate-700`}
+              >
+                <svg
+                  className={`h-2.5 w-2.5 transition-transform ${expandedCategories.has(cat.label) ? 'rotate-0' : '-rotate-90'}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+                {CATEGORY_ICONS[cat.label]}
+                <span className="tracking-wide">{cat.label}</span>
+                <span className="ml-auto text-slate-300">{cat.commands.length}</span>
+              </button>
+
+              {/* Command pills */}
+              {expandedCategories.has(cat.label) && (
+                <div className="flex flex-wrap gap-1 pb-1 pl-4">
+                  {cat.commands.map((cmd) => (
+                    <button
+                      key={cmd.label}
+                      onClick={() => { if (!disabled) onSelect(cmd.prompt) }}
+                      disabled={disabled}
+                      className={`rounded-full bg-slate-50 px-2 py-0.5 ${pillTextClass} font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50`}
+                    >
+                      {cmd.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

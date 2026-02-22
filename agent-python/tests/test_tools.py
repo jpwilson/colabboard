@@ -40,7 +40,7 @@ class TestCreateStickyNote:
         obj = result["object"]
         assert obj["x"] == 100
         assert obj["y"] == 100
-        assert obj["fill"] == "#fef08a"  # default yellow
+        assert obj["fill"] == "#EAB308"  # default golden
         assert obj["width"] == 150
         assert obj["height"] == 150
 
@@ -169,7 +169,7 @@ class TestDeleteObject:
 class TestGetBoardState:
     def test_returns_objects(self):
         mock_data = [
-            {"id": "1", "type": "sticky_note", "x": 100, "y": 100, "width": 150, "height": 150, "data": {"text": "Hello", "fill": "#fef08a"}, "z_index": 0},
+            {"id": "1", "type": "sticky_note", "x": 100, "y": 100, "width": 150, "height": 150, "data": {"text": "Hello", "fill": "#EAB308"}, "z_index": 0},
         ]
         tools = make_tools("board-1", _make_mock_supabase(mock_data))
         tool = _get_tool(tools, "getBoardState")
