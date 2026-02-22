@@ -1,7 +1,8 @@
 'use client'
 
 import { memo } from 'react'
-import { Rect, Circle, Ellipse, RegularPolygon, Star, Arrow, Line, Group, Text } from 'react-konva'
+import { Rect, Circle, Ellipse, RegularPolygon, Star, Arrow, Line, Group, Text, Image as KonvaImage } from 'react-konva'
+import useImage from 'use-image'
 import type Konva from 'konva'
 import type { CanvasObject } from '@/lib/board-sync'
 import { getContrastTextColor } from '@/lib/shape-defaults'
@@ -26,6 +27,49 @@ function getFreedrawOutline(
   })
   return outline.flat()
 }
+
+/** Separate component for image rendering — hooks can't be called inside switch */
+const ImageShape = memo(function ImageShape({
+  obj,
+  groupProps,
+}: {
+  obj: CanvasObject
+  groupProps: Record<string, unknown>
+}) {
+  const [image, status] = useImage(obj.imageUrl || '', 'anonymous')
+  return (
+    <Group {...groupProps}>
+      {status === 'loaded' && image ? (
+        <KonvaImage
+          image={image}
+          width={obj.width}
+          height={obj.height}
+          opacity={obj.opacity ?? 1}
+        />
+      ) : (
+        <>
+          <Rect
+            width={obj.width}
+            height={obj.height}
+            fill="#f8fafc"
+            stroke="#e2e8f0"
+            strokeWidth={1}
+            cornerRadius={4}
+          />
+          <Text
+            x={0}
+            y={obj.height / 2 - 8}
+            width={obj.width}
+            text={status === 'loading' ? 'Loading...' : 'Image'}
+            fontSize={12}
+            fill="#94a3b8"
+            align="center"
+          />
+        </>
+      )}
+    </Group>
+  )
+})
 
 interface ShapeRendererProps {
   obj: CanvasObject
@@ -364,6 +408,43 @@ export const ShapeRenderer = memo(function ShapeRenderer({
 
       return <Arrow points={renderPts} {...commonConnectorProps} {...pointerProps} />
     }
+
+    case 'image':
+      return <ImageShape obj={obj} groupProps={commonGroupProps} />
+
+    case 'model3d':
+      return (
+        <Group {...commonGroupProps}>
+          <Rect
+            width={obj.width}
+            height={obj.height}
+            fill="#f1f5f9"
+            stroke="#94a3b8"
+            strokeWidth={1}
+            cornerRadius={4}
+            opacity={opacity}
+          />
+          <Text
+            x={0}
+            y={obj.height / 2 - 16}
+            width={obj.width}
+            text="3D"
+            fontSize={24}
+            fontStyle="bold"
+            fill="#94a3b8"
+            align="center"
+          />
+          <Text
+            x={0}
+            y={obj.height / 2 + 8}
+            width={obj.width}
+            text="Double-click to interact"
+            fontSize={10}
+            fill="#cbd5e1"
+            align="center"
+          />
+        </Group>
+      )
 
     default:
       return (

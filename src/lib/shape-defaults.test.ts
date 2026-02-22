@@ -16,6 +16,9 @@ const ALL_SHAPE_TYPES: ShapeType[] = [
   'pentagon',
   'freedraw',
   'connector',
+  'text',
+  'image',
+  'model3d',
 ]
 
 describe('shape-defaults', () => {

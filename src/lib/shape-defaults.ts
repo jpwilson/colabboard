@@ -24,6 +24,8 @@ export const SHAPE_DEFAULTS: Record<ShapeType, ShapeDefault> = {
   freedraw: { width: 0, height: 0, fill: 'transparent', stroke: '#1f2937', strokeWidth: 3 },
   connector: { width: 0, height: 0, fill: 'transparent', stroke: '#1f2937', strokeWidth: 2 },
   text: { width: 200, height: 40, fill: '#1f2937' },
+  image: { width: 300, height: 300, fill: 'transparent' },
+  model3d: { width: 250, height: 250, fill: '#f1f5f9', stroke: '#94a3b8', strokeWidth: 1 },
 }
 
 export const STICKY_COLORS = ['#EAB308', '#0066FF', '#DC2626', '#059669', '#F97316', '#7C3AED', '#EC4899', '#0D9488']

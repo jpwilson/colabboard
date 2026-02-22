@@ -5,6 +5,7 @@ import {
 } from '@/lib/supabase/admin'
 import { SortableUsersTable } from '@/components/admin/SortableUsersTable'
 import type { UserRow } from '@/components/admin/SortableUsersTable'
+import { getLangfuseTraces } from '@/components/admin/analytics/analytics-data'
 
 interface ProfileRow {
   id: string
@@ -62,6 +63,20 @@ export default async function UsersPage() {
     memberCountMap.set(m.user_id, (memberCountMap.get(m.user_id) || 0) + 1)
   }
 
+  // Aggregate per-user AI cost from Langfuse traces (capped at 500 most recent)
+  const costByUserId = new Map<string, number>()
+  try {
+    const traces = await getLangfuseTraces()
+    for (const t of traces) {
+      const userId = t.metadata?.userId as string | undefined
+      if (userId && t.totalCost) {
+        costByUserId.set(userId, (costByUserId.get(userId) ?? 0) + t.totalCost)
+      }
+    }
+  } catch {
+    // Langfuse may be unavailable — cost column will show $0.0000
+  }
+
   const users: UserRow[] = ((profiles as ProfileRow[]) || []).map((p) => {
     const authData = authUserMap.get(p.id)
     const email = p.email || authData?.email || null
@@ -73,6 +88,7 @@ export default async function UsersPage() {
       isSuperuser: authData?.isSuperuser || false,
       boardsOwned: ownerCountMap.get(p.id) || 0,
       boardsMember: memberCountMap.get(p.id) || 0,
+      aiCost: costByUserId.get(p.id) ?? 0,
       toggleDisabled:
         email === PERMANENT_SUPERUSER_EMAIL || p.id === currentUser?.id,
     }

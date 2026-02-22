@@ -13,6 +13,7 @@ import { Toolbar, type Tool, type ShapeTool } from './Toolbar'
 import { PropertiesPanel } from './PropertiesPanel'
 import { ConnectionIndicator } from './ConnectionIndicator'
 import { AiAgentPanel } from '@/components/ui/AiAgentButton'
+import { Model3DOverlay } from './Model3DOverlay'
 import { SHAPE_DEFAULTS, STICKY_COLORS, getContrastTextColor } from '@/lib/shape-defaults'
 import getStroke from 'perfect-freehand'
 import type { CanvasObject, ShapeType } from '@/lib/board-sync'
@@ -55,6 +56,9 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   type GridMode = 'none' | 'dots' | 'lines'
   const [gridMode, setGridMode] = useState<GridMode>('none')
   const [displayName, setDisplayName] = useState(boardName || '')
+
+  // 3D interaction state
+  const [interacting3dId, setInteracting3dId] = useState<string | null>(null)
 
   // Freedraw state
   const [isDrawing, setIsDrawing] = useState(false)
@@ -292,6 +296,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         const isShift = 'shiftKey' in e.evt && e.evt.shiftKey
         if (!isShift) {
           setSelectedIds([])
+          setInteracting3dId(null)
         }
         return
       }
@@ -627,7 +632,15 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const handleDoubleClick = useCallback(
     (id: string) => {
       const obj = objects.find((o) => o.id === id)
-      if (!obj || (obj.type !== 'sticky_note' && obj.type !== 'text')) return
+      if (!obj) return
+
+      // Toggle 3D interaction mode
+      if (obj.type === 'model3d') {
+        setInteracting3dId((prev) => (prev === id ? null : id))
+        return
+      }
+
+      if (obj.type !== 'sticky_note' && obj.type !== 'text') return
       setEditingId(id)
 
       const stage = stageRef.current
@@ -768,6 +781,14 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       return Math.max(0.02, prev / (1.2 + dist * 0.08))
     })
   }, [])
+
+  // Handle 3D model camera orbit changes — sync to other users
+  const handle3DCameraChange = useCallback(
+    (id: string, cameraOrbit: string) => {
+      updateObjectHelper(id, { cameraOrbit, updated_at: new Date().toISOString() })
+    },
+    [updateObjectHelper],
+  )
 
   const handleZoomFit = useCallback(() => {
     if (objects.length === 0) {
@@ -1296,6 +1317,15 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
             )}
           </Layer>
         </Stage>
+
+        {/* 3D model viewer overlay — positioned over canvas */}
+        <Model3DOverlay
+          objects={objects}
+          stagePos={stagePos}
+          stageScale={stageScale}
+          interactingId={interacting3dId}
+          onCameraChange={handle3DCameraChange}
+        />
 
         {/* AI Agent Panel — only for authenticated users with board access */}
         {syncEnabled && boardId && (

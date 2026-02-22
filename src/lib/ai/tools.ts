@@ -4,6 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { SHAPE_DEFAULTS, STICKY_COLORS } from '@/lib/shape-defaults'
 import type { ShapeType } from '@/lib/board-sync'
 import { generateSketch } from './sketch-agent'
+import { generateSvg } from './generation/generate-svg'
+import { generateImage } from './generation/generate-image'
 
 const SHAPE_TYPES = [
   'rectangle',
@@ -491,7 +493,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
 
     drawSketch: tool({
       description:
-        'Draw a sketch of a concept using AI-generated strokes. Creates a hand-drawn illustration made of smooth Bezier curves. Use this for any request to draw, sketch, or illustrate something (e.g. "draw a horse", "sketch a sailboat", "draw a DNA helix").',
+        'Draw a hand-drawn sketch of a concept using AI-generated Bezier curve strokes. Creates a pen-and-ink style illustration. Best for quick doodles and hand-drawn style only — for better quality, use generateSvg instead.',
       inputSchema: z.object({
         concept: z
           .string()
@@ -535,6 +537,150 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
           return {
             action: 'create' as const,
             error: `Sketch generation failed: ${err instanceof Error ? err.message : String(err)}`,
+          }
+        }
+      },
+    }),
+
+    // ── Image Generation Tools ──────────────────────────────────────────
+
+    generateSvgImage: tool({
+      description:
+        'Generate a clean, colorful SVG illustration of a concept and place it on the board as an image. Best for icons, diagrams, logos, simple illustrations, and any visual where vector quality matters. Fast (~2s) and cheap. Prefer this over drawSketch for better quality.',
+      inputSchema: z.object({
+        concept: z
+          .string()
+          .describe('What to draw (e.g. "cat", "rocket ship", "DNA helix", "coffee cup")'),
+        style: z
+          .string()
+          .optional()
+          .describe('Art style (e.g. "flat design", "minimalist", "cartoon", "geometric")'),
+        x: z.number().optional().describe('X position on canvas (default: 100)'),
+        y: z.number().optional().describe('Y position on canvas (default: 100)'),
+        width: z.number().optional().describe('Width in pixels (default: 300)'),
+        height: z.number().optional().describe('Height in pixels (default: 300)'),
+      }),
+      execute: async ({ concept, style, x, y, width, height }) => {
+        try {
+          const { dataUrl } = await generateSvg(concept, style)
+          const defaults = SHAPE_DEFAULTS.image
+          return {
+            action: 'create' as const,
+            object: {
+              id: crypto.randomUUID(),
+              type: 'image' as const,
+              x: x ?? 100,
+              y: y ?? 100,
+              width: width ?? defaults.width,
+              height: height ?? defaults.height,
+              fill: 'transparent',
+              imageUrl: dataUrl,
+              z_index: 0,
+              updated_at: new Date().toISOString(),
+            },
+          }
+        } catch (err) {
+          return {
+            action: 'create' as const,
+            error: `SVG generation failed: ${err instanceof Error ? err.message : String(err)}`,
+          }
+        }
+      },
+    }),
+
+    // ── 3D Model Tool ───────────────────────────────────────────────────
+
+    create3DModel: tool({
+      description:
+        'Place an interactive 3D model on the board. Users can double-click to rotate and orbit the model. Supports basic shapes (cube, sphere, cylinder, torus) via built-in models, or a custom GLB URL.',
+      inputSchema: z.object({
+        shape: z
+          .enum(['cube', 'sphere', 'cylinder', 'torus', 'custom'])
+          .describe('The 3D shape to place. Use "custom" with modelUrl for external GLB files.'),
+        modelUrl: z
+          .string()
+          .optional()
+          .describe('URL to a .glb file (only needed for "custom" shape)'),
+        x: z.number().optional().describe('X position on canvas (default: 100)'),
+        y: z.number().optional().describe('Y position on canvas (default: 100)'),
+        width: z.number().optional().describe('Width in pixels (default: 250)'),
+        height: z.number().optional().describe('Height in pixels (default: 250)'),
+      }),
+      execute: async ({ shape, modelUrl, x, y, width, height }) => {
+        // Built-in shape URLs from Google's model-viewer sample assets
+        const BUILT_IN_MODELS: Record<string, string> = {
+          cube: 'https://modelviewer.dev/shared-assets/models/cube.glb',
+          sphere: 'https://modelviewer.dev/shared-assets/models/reflective-sphere.glb',
+          cylinder: 'https://modelviewer.dev/shared-assets/models/cylinder.glb',
+          torus: 'https://modelviewer.dev/shared-assets/models/torus.glb',
+        }
+
+        const url = shape === 'custom' ? modelUrl : BUILT_IN_MODELS[shape]
+        if (!url) {
+          return {
+            action: 'create' as const,
+            error: shape === 'custom'
+              ? 'modelUrl is required for custom shapes'
+              : `No built-in model for shape: ${shape}`,
+          }
+        }
+
+        const defaults = SHAPE_DEFAULTS.model3d
+        return {
+          action: 'create' as const,
+          object: {
+            id: crypto.randomUUID(),
+            type: 'model3d' as const,
+            x: x ?? 100,
+            y: y ?? 100,
+            width: width ?? defaults.width,
+            height: height ?? defaults.height,
+            fill: defaults.fill,
+            modelUrl: url,
+            cameraOrbit: '0deg 75deg 2.5m',
+            z_index: 0,
+            updated_at: new Date().toISOString(),
+          },
+        }
+      },
+    }),
+
+    generateRealisticImage: tool({
+      description:
+        'Generate a high-quality, realistic image using DALL-E 3 and place it on the board. Best for photorealistic scenes, complex illustrations, or artistic imagery. Slower (~10s) and costs ~$0.04 per image. Use generateSvgImage for simpler/faster needs.' +
+        (!process.env.OPENAI_API_KEY ? ' NOTE: This tool is currently unavailable (OPENAI_API_KEY not configured). Use generateSvgImage instead.' : ''),
+      inputSchema: z.object({
+        prompt: z
+          .string()
+          .describe('Detailed description of the image to generate (e.g. "a sunset over mountains with a lake reflection")'),
+        x: z.number().optional().describe('X position on canvas (default: 100)'),
+        y: z.number().optional().describe('Y position on canvas (default: 100)'),
+        width: z.number().optional().describe('Display width in pixels (default: 300)'),
+        height: z.number().optional().describe('Display height in pixels (default: 300)'),
+      }),
+      execute: async ({ prompt, x, y, width, height }) => {
+        try {
+          const { dataUrl } = await generateImage(prompt)
+          const defaults = SHAPE_DEFAULTS.image
+          return {
+            action: 'create' as const,
+            object: {
+              id: crypto.randomUUID(),
+              type: 'image' as const,
+              x: x ?? 100,
+              y: y ?? 100,
+              width: width ?? defaults.width,
+              height: height ?? defaults.height,
+              fill: 'transparent',
+              imageUrl: dataUrl,
+              z_index: 0,
+              updated_at: new Date().toISOString(),
+            },
+          }
+        } catch (err) {
+          return {
+            action: 'create' as const,
+            error: `Image generation failed: ${err instanceof Error ? err.message : String(err)}`,
           }
         }
       },
