@@ -14,6 +14,7 @@ import { PropertiesPanel } from './PropertiesPanel'
 import { ConnectionIndicator } from './ConnectionIndicator'
 import { AiAgentPanel } from '@/components/ui/AiAgentButton'
 import { SHAPE_DEFAULTS, STICKY_COLORS, getContrastTextColor } from '@/lib/shape-defaults'
+import getStroke from 'perfect-freehand'
 import type { CanvasObject, ShapeType } from '@/lib/board-sync'
 
 function generateId() {
@@ -1165,17 +1166,28 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
             )}
 
             {/* In-progress freedraw preview */}
-            {isDrawing && currentDrawPoints.length >= 4 && (
-              <Line
-                points={currentDrawPoints}
-                stroke="#1f2937"
-                strokeWidth={3}
-                tension={0.5}
-                lineCap="round"
-                lineJoin="round"
-                listening={false}
-              />
-            )}
+            {isDrawing && currentDrawPoints.length >= 4 && (() => {
+              const inputPts: [number, number][] = []
+              for (let i = 0; i < currentDrawPoints.length; i += 2) {
+                inputPts.push([currentDrawPoints[i], currentDrawPoints[i + 1]])
+              }
+              const outline = getStroke(inputPts, {
+                size: 7.5,
+                thinning: 0.5,
+                smoothing: 0.5,
+                streamline: 0.5,
+                start: { taper: true },
+                end: { taper: true },
+              })
+              return (
+                <Line
+                  points={outline.flat()}
+                  fill="#1f2937"
+                  closed={true}
+                  listening={false}
+                />
+              )
+            })()}
 
             {/* Marquee selection rectangle */}
             {selectionRect && (

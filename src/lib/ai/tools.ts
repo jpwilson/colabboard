@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SHAPE_DEFAULTS, STICKY_COLORS } from '@/lib/shape-defaults'
 import type { ShapeType } from '@/lib/board-sync'
+import { generateSketch } from './sketch-agent'
 
 const SHAPE_TYPES = [
   'rectangle',
@@ -482,6 +483,59 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
             }
           }),
           count: data?.length ?? 0,
+        }
+      },
+    }),
+
+    // ── Drawing Tool ───────────────────────────────────────────────────
+
+    drawSketch: tool({
+      description:
+        'Draw a sketch of a concept using AI-generated strokes. Creates a hand-drawn illustration made of smooth Bezier curves. Use this for any request to draw, sketch, or illustrate something (e.g. "draw a horse", "sketch a sailboat", "draw a DNA helix").',
+      inputSchema: z.object({
+        concept: z
+          .string()
+          .describe('What to draw (e.g. "horse", "sailboat", "DNA helix", "face")'),
+        x: z.number().optional().describe('X position on canvas (default: 100)'),
+        y: z.number().optional().describe('Y position on canvas (default: 100)'),
+        width: z
+          .number()
+          .optional()
+          .describe('Width of the drawing area in pixels (default: 400)'),
+        height: z
+          .number()
+          .optional()
+          .describe('Height of the drawing area in pixels (default: 400)'),
+      }),
+      execute: async ({ concept, x, y, width, height }) => {
+        try {
+          const objects = await generateSketch(
+            concept,
+            x ?? 100,
+            y ?? 100,
+            width ?? 400,
+            height ?? 400,
+          )
+
+          if (objects.length === 0) {
+            return {
+              action: 'create' as const,
+              error: 'Failed to generate sketch — no strokes were produced.',
+            }
+          }
+
+          return {
+            action: 'batch_create' as const,
+            objects: objects.map((obj) => ({
+              ...obj,
+              z_index: 0,
+            })),
+          }
+        } catch (err) {
+          return {
+            action: 'create' as const,
+            error: `Sketch generation failed: ${err instanceof Error ? err.message : String(err)}`,
+          }
         }
       },
     }),

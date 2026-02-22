@@ -16,6 +16,7 @@ export interface DomainPack {
   templates: TemplateDefinition[]
   editPrompts: Array<{ label: string; prompt: string }>
   layoutPrompts: Array<{ label: string; prompt: string }>
+  drawingPrompts: Array<{ label: string; prompt: string }>
 }
 
 // ── General Pack (existing 8 templates) ──
@@ -133,6 +134,14 @@ const generalPack: DomainPack = {
     { label: 'Sort by color', prompt: 'Group and arrange objects by their color' },
     { label: 'Compact', prompt: 'Move all objects closer together to reduce whitespace' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
+  ],
+  drawingPrompts: [
+    { label: 'Draw a horse', prompt: 'Draw a horse' },
+    { label: 'Draw a sailboat', prompt: 'Draw a sailboat' },
+    { label: 'Sketch a face', prompt: 'Sketch a human face' },
+    { label: 'Draw a tree', prompt: 'Draw a tree' },
+    { label: 'Draw a cat', prompt: 'Draw a cat' },
+    { label: 'Draw a house', prompt: 'Draw a house' },
   ],
 }
 
@@ -256,6 +265,12 @@ const businessPack: DomainPack = {
     { label: 'Add headings', prompt: 'Add a large title heading above the template' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [
+    { label: 'Draw an org chart', prompt: 'Draw an organizational chart' },
+    { label: 'Sketch a process flow', prompt: 'Sketch a business process flow diagram' },
+    { label: 'Draw a funnel', prompt: 'Draw a sales funnel' },
+    { label: 'Draw a handshake', prompt: 'Draw a handshake' },
+  ],
 }
 
 // ── Product & UX Pack ──
@@ -352,6 +367,12 @@ const productPack: DomainPack = {
     { label: 'Prioritize', prompt: 'Rearrange items by priority (highest at top)' },
     { label: 'Add headings', prompt: 'Add a large title heading above the template' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
+  ],
+  drawingPrompts: [
+    { label: 'Draw a wireframe', prompt: 'Draw a mobile app wireframe' },
+    { label: 'Sketch a user journey', prompt: 'Sketch a user journey path' },
+    { label: 'Draw a phone', prompt: 'Draw a smartphone' },
+    { label: 'Draw a lightbulb', prompt: 'Draw a lightbulb' },
   ],
 }
 
@@ -458,6 +479,12 @@ const engineeringPack: DomainPack = {
     { label: 'Add headings', prompt: 'Add a large title heading above the diagram' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [
+    { label: 'Draw a circuit', prompt: 'Draw a simple circuit diagram' },
+    { label: 'Sketch architecture', prompt: 'Sketch a system architecture diagram' },
+    { label: 'Draw a gear', prompt: 'Draw a gear mechanism' },
+    { label: 'Draw a robot', prompt: 'Draw a robot' },
+  ],
 }
 
 // ── Education Pack ──
@@ -549,6 +576,12 @@ const educationPack: DomainPack = {
     { label: 'Add headings', prompt: 'Add a large title heading above the template' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [
+    { label: 'Draw a cell', prompt: 'Draw a biological cell diagram' },
+    { label: 'Sketch solar system', prompt: 'Sketch the solar system' },
+    { label: 'Draw a brain', prompt: 'Draw a brain' },
+    { label: 'Draw a globe', prompt: 'Draw a globe' },
+  ],
 }
 
 // ── Science Pack ──
@@ -629,6 +662,12 @@ const sciencePack: DomainPack = {
     { label: 'Number steps', prompt: 'Add numbered labels to the procedure steps' },
     { label: 'Add headings', prompt: 'Add a large title heading above the template' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
+  ],
+  drawingPrompts: [
+    { label: 'Draw a DNA helix', prompt: 'Draw a DNA double helix' },
+    { label: 'Draw a molecule', prompt: 'Draw a molecule' },
+    { label: 'Sketch an atom', prompt: 'Sketch an atom with electron orbits' },
+    { label: 'Draw a butterfly', prompt: 'Draw a butterfly' },
   ],
 }
 

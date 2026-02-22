@@ -5,6 +5,27 @@ import { Rect, Circle, Ellipse, RegularPolygon, Star, Arrow, Line, Group, Text }
 import type Konva from 'konva'
 import type { CanvasObject } from '@/lib/board-sync'
 import { getContrastTextColor } from '@/lib/shape-defaults'
+import getStroke from 'perfect-freehand'
+
+/** Convert flat [x1,y1,x2,y2,...] to outline polygon via perfect-freehand */
+function getFreedrawOutline(
+  flatPoints: number[],
+  strokeWidth: number,
+): number[] {
+  const inputPoints: [number, number][] = []
+  for (let i = 0; i < flatPoints.length; i += 2) {
+    inputPoints.push([flatPoints[i], flatPoints[i + 1]])
+  }
+  const outline = getStroke(inputPoints, {
+    size: strokeWidth * 2.5,
+    thinning: 0.5,
+    smoothing: 0.5,
+    streamline: 0.5,
+    start: { taper: true },
+    end: { taper: true },
+  })
+  return outline.flat()
+}
 
 interface ShapeRendererProps {
   obj: CanvasObject
@@ -253,10 +274,13 @@ export const ShapeRenderer = memo(function ShapeRenderer({
         </Group>
       )
 
-    case 'freedraw':
+    case 'freedraw': {
+      const rawPts = obj.points || []
+      const sw = strokeWidth || 3
+      const outlinePoints = rawPts.length >= 4 ? getFreedrawOutline(rawPts, sw) : rawPts
       return (
         <Group {...commonGroupProps}>
-          {/* Invisible rect for hit detection — Line alone has a tiny hit area */}
+          {/* Invisible rect for hit detection */}
           <Rect
             width={obj.width}
             height={obj.height}
@@ -264,16 +288,15 @@ export const ShapeRenderer = memo(function ShapeRenderer({
             listening={true}
           />
           <Line
-            points={obj.points || []}
-            stroke={stroke || '#1f2937'}
-            strokeWidth={strokeWidth || 3}
-            tension={0.5}
-            lineCap="round"
-            lineJoin="round"
+            points={outlinePoints}
+            fill={stroke || '#1f2937'}
+            closed={true}
             opacity={opacity}
+            listening={false}
           />
         </Group>
       )
+    }
 
     case 'text':
       return (

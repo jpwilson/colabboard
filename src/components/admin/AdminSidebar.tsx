@@ -42,6 +42,11 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Boards',
     icon: 'M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V4.5a1.5 1.5 0 00-1.5-1.5H3.75a1.5 1.5 0 00-1.5 1.5v15a1.5 1.5 0 001.5 1.5z',
   },
+  {
+    href: '/admin/changelog',
+    label: 'Changelog',
+    icon: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
+  },
 ]
 
 export function AdminSidebar() {

@@ -36,13 +36,13 @@ interface UndoGroup {
 }
 
 interface ToolActionResult {
-  action: 'create' | 'update' | 'delete' | 'read' | 'batch_update'
+  action: 'create' | 'update' | 'delete' | 'read' | 'batch_update' | 'batch_create'
   object?: Record<string, unknown>
   titleLabel?: Record<string, unknown> // createFrame returns a title label too
   id?: string
   updates?: Record<string, unknown>
   batchUpdates?: Array<{ id: string; updates: Record<string, unknown> }>
-  objects?: unknown[]
+  objects?: Array<Record<string, unknown>>
   count?: number
   error?: string
 }
@@ -256,6 +256,23 @@ export function AiAgentPanel({
               batchEntries.push({ id: u.id, previous: previousValues, applied })
             }
             entries.push({ type: 'batch_update', batchUpdateEntries: batchEntries })
+          }
+          break
+        }
+        case 'batch_create': {
+          if (result.objects) {
+            const createdObjects: CanvasObject[] = []
+            for (const rawObj of result.objects) {
+              const obj = {
+                ...rawObj,
+                z_index: nextZRef.current++,
+              } as CanvasObject
+              onAddObject(obj)
+              createdObjects.push(obj)
+            }
+            if (createdObjects.length > 0) {
+              entries.push({ type: 'create', createdObjects })
+            }
           }
           break
         }
@@ -784,16 +801,16 @@ function DomainStrip({
   panelWidth: number
 }) {
   const domains = getAllDomains()
-  const showLabels = panelWidth >= 420
+  const showLabels = panelWidth >= 380
 
   return (
-    <div className="flex flex-col items-center gap-1 border-l border-slate-200 bg-slate-50/50 px-1.5 py-3">
+    <div className={`flex flex-col items-center gap-0.5 border-l border-slate-200 bg-slate-50/50 py-3 ${showLabels ? 'w-16 px-1' : 'w-10 px-1'}`}>
       {domains.map((d) => (
         <button
           key={d.id}
           onClick={() => onSelect(d.id)}
-          className={`group relative flex items-center justify-center rounded-lg transition-all ${
-            showLabels ? 'w-full gap-1.5 px-2 py-1.5' : 'h-9 w-9 p-0'
+          className={`group relative flex flex-col items-center justify-center rounded-lg transition-all ${
+            showLabels ? 'w-full gap-0.5 px-0.5 py-1.5' : 'h-9 w-9 p-0'
           } ${
             selected === d.id
               ? 'bg-primary/15 text-primary-dark shadow-sm ring-1 ring-primary/30'
@@ -803,8 +820,8 @@ function DomainStrip({
         >
           <span className="text-base leading-none">{d.icon}</span>
           {showLabels && (
-            <span className="truncate text-[10px] font-semibold leading-tight">
-              {d.name.length > 8 ? d.name.slice(0, 7) + '\u2026' : d.name}
+            <span className="text-center text-[9px] font-semibold leading-tight">
+              {d.name}
             </span>
           )}
           {/* Tooltip on hover (icon-only mode) */}
@@ -860,10 +877,13 @@ function SuggestionAccordion({
     })
   }, [])
 
+  const [drawingExpanded, setDrawingExpanded] = useState(true)
+
   const toggleAll = useCallback(() => {
     setSuggestionsVisible((prev) => {
       if (prev) return false
       setExpandedCategories(new Set(['Create', 'Edit', 'Layout']))
+      setDrawingExpanded(true)
       return true
     })
   }, [])
@@ -923,6 +943,39 @@ function SuggestionAccordion({
               )}
             </div>
           ))}
+
+          {/* Drawing Tools section */}
+          {domainPack && domainPack.drawingPrompts.length > 0 && (
+            <div className="mt-1 border-t border-slate-300 pt-1.5">
+              <button
+                onClick={() => setDrawingExpanded((p) => !p)}
+                className={`flex w-full items-center gap-1 py-1 ${pillTextClass} font-bold uppercase tracking-widest text-slate-400/80 transition hover:text-slate-600`}
+              >
+                <svg
+                  className={`h-2.5 w-2.5 transition-transform ${drawingExpanded ? 'rotate-0' : '-rotate-90'}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+                <span>Drawing Tools</span>
+                <span className="ml-auto text-slate-300">{domainPack.drawingPrompts.length}</span>
+              </button>
+              {drawingExpanded && (
+                <div className="flex flex-wrap gap-1 pb-1 pl-4">
+                  {domainPack.drawingPrompts.map((cmd) => (
+                    <button
+                      key={cmd.label}
+                      onClick={() => { if (!disabled) onSelect(cmd.prompt) }}
+                      disabled={disabled}
+                      className={`rounded-full border border-slate-200 bg-white px-2 py-0.5 ${pillTextClass} font-medium text-slate-600 shadow-sm transition-all duration-150 hover:border-primary/30 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50`}
+                    >
+                      {cmd.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
