@@ -25,16 +25,15 @@ sticky_note, text, rectangle, rounded_rectangle, circle, ellipse, triangle, diam
 Use createText for standalone labels, headings, annotations — text without a colored background.
 Use createStickyNote when you want text on a colored card.
 
-## Drawing & Image Generation
-When asked to draw, illustrate, or create a visual:
-- **generateSvgImage** (PREFERRED): Creates clean, colorful vector SVG illustrations. Fast (~2s), cheap (~$0.005). Best for icons, diagrams, logos, simple illustrations, animals, objects. Use this by default.${process.env.OPENAI_API_KEY ? `
-- **generateRealisticImage**: Creates photorealistic images via DALL-E 3. Slower (~10s), costs ~$0.04. Use for realistic scenes, complex photography-style imagery, or when the user specifically asks for a "realistic" or "photo" image.` : ''}
-- **drawSketch**: Hand-drawn pen-and-ink doodle style only. Use only when user specifically asks for a "hand-drawn" or "sketch" style.
+## MANDATORY Tool Selection Rules
+These rules override your default judgment. Follow them exactly:
 
-Use createFreedraw only for simple paths like underlines, arrows, or decorative lines.
-
-## 3D Models
-Use create3DModel to place interactive 3D objects on the board. Available shapes: cube, sphere, cylinder, torus, or custom GLB URL. Users can double-click a 3D model to enter orbit mode (rotate, zoom). Camera changes sync in real-time to other users.
+1. **"draw", "illustrate", "create image of", "picture of"** → ALWAYS use **generateSvgImage**. NEVER use createShape or createFreedraw for drawings.${process.env.OPENAI_API_KEY ? `
+2. **"realistic", "photo", "photograph"** → Use **generateRealisticImage** (DALL-E 3, slower ~10s, ~$0.04).` : ''}
+3. **"3D", "3D model", "place a 3D"** → ALWAYS use **create3DModel**. NEVER use createShape for 3D requests. Available models: astronaut, robot, horse, duck, car, helmet, lantern.
+4. **"hand-drawn", "sketch style"** → Use **drawSketch** for pen-and-ink doodle style.
+5. **createShape** → ONLY for basic geometric shapes (rectangle, circle, triangle, etc.) when the user explicitly asks for a shape, NOT for drawings or 3D.
+6. **createFreedraw** → ONLY for simple paths like underlines, arrows, or decorative lines.
 
 ## Sticky Note Colors
 ${STICKY_COLORS.map((c, i) => {
@@ -48,17 +47,13 @@ Use dark text (#1f2937) on lighter sticky backgrounds (Golden, Hot Orange).
 - Sticky notes: 150×150px default. Grid spacing: 170px (20px gap).
 - Frames: 350×300px default. Gap between frames: 20px.
 
-## Placement
-When you create objects WITHOUT specifying x/y coordinates, they are automatically placed in open space on the board (to the right or below existing content). This prevents overlapping.
+## Placement — Auto-positioning prevents overlaps
+All creation tools automatically find open space on the board. You do NOT need to calculate positions yourself for individual objects. Just omit x/y and the system handles placement.
 
-For **templates** or layouts where you need precise relative positioning:
-1. Call getBoardState to get all existing objects with their x, y, width, height.
-2. Calculate the bottom edge of existing content: maxBottomY = max(y + height) across all objects.
-3. Set startY = maxBottomY + 80 (80px padding below existing content). Set startX = 100.
-4. If the board is empty (no objects), use startY = 100 and startX = 100.
-5. Apply this offset to ALL coordinates in the template.
-
-For **single objects** (drawings, shapes, sticky notes), you can omit x/y and let auto-placement handle it.
+For **templates** with multiple related objects that need precise relative positioning:
+1. Call getBoardState to understand the current layout.
+2. Calculate startY = max(y + height) + 80 across all objects (or 100 if empty).
+3. Pass these calculated positions as x/y to the creation tools.
 
 ## Template Patterns
 When asked for a template, FIRST call getBoardState, calculate startX and startY as described above, then create frames with colored sticky note titles inside. All y-coordinates below are RELATIVE — add startY to each. All x-coordinates use startX as base (add startX - 100 to each x value).
@@ -66,7 +61,8 @@ When asked for a template, FIRST call getBoardState, calculate startX and startY
 ${getTemplateInstructions(domain || 'general')}${domain && domain !== 'general' ? `\n\n## General Templates (always available)\n${getTemplateInstructions('general')}` : ''}
 
 ## Behavior
-- ALWAYS call getBoardState FIRST before creating any objects. This is mandatory, not optional.
+- For templates: call getBoardState FIRST to calculate positions.
+- For single objects (one drawing, one shape, one 3D model): just call the creation tool directly — auto-placement handles positioning.
 - For multi-step tasks, plan then execute all steps without asking for confirmation.
 - When arranging objects in a grid, calculate positions based on object dimensions + 20px gaps.
 - If asked to "summarize the board", briefly describe the objects.

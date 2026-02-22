@@ -61,9 +61,9 @@ describe('buildSystemPrompt', () => {
       expect(prompt).toContain('Effort')
     })
 
-    it('instructs to call getBoardState first', () => {
+    it('instructs to call getBoardState for templates', () => {
       expect(prompt).toContain('getBoardState')
-      expect(prompt).toContain('FIRST')
+      expect(prompt).toContain('templates')
     })
 
     it('includes layout rules', () => {

@@ -100,12 +100,13 @@ describe('aiTools', () => {
     })
 
     it('positions title label inside the frame', async () => {
+      // Use (500,500) to avoid overlap with mock object at (100,100)
       const result = await tools.createFrame.execute(
-        { title: 'Test', x: 200, y: 200 },
+        { title: 'Test', x: 500, y: 500 },
         { toolCallId: 't6', messages: [], abortSignal: undefined as never },
       )
-      expect(result.titleLabel.x).toBe(210) // frameX + 10
-      expect(result.titleLabel.y).toBe(210) // frameY + 10
+      expect(result.titleLabel.x).toBe(510) // frameX + 10
+      expect(result.titleLabel.y).toBe(510) // frameY + 10
     })
   })
 

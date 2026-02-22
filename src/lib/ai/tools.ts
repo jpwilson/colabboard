@@ -35,12 +35,15 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
 
   /**
    * Find an unoccupied area on the board for a new object.
-   * Queries existing objects + tracks positions allocated in this turn.
-   * Tries: right of content → below content → fallback right-top.
+   * If preferX/preferY are given, uses them only if they don't overlap.
+   * Otherwise scans right → below existing content for open space.
+   * Tracks positions allocated in this AI turn to prevent stacking.
    */
   async function findOpenSpace(
     neededWidth: number,
     neededHeight: number,
+    preferX?: number,
+    preferY?: number,
   ): Promise<{ x: number; y: number }> {
     const { data } = await supabase
       .from('board_objects')
@@ -58,8 +61,9 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
     ]
 
     if (rects.length === 0) {
-      allocated.push({ x: 100, y: 100, width: neededWidth, height: neededHeight })
-      return { x: 100, y: 100 }
+      const pos = { x: preferX ?? 100, y: preferY ?? 100 }
+      allocated.push({ ...pos, width: neededWidth, height: neededHeight })
+      return pos
     }
 
     const PAD = 40
@@ -76,6 +80,12 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         }
       }
       return false
+    }
+
+    // If preferred position doesn't overlap, use it
+    if (preferX != null && preferY != null && !overlaps(preferX, preferY)) {
+      allocated.push({ x: preferX, y: preferY, width: neededWidth, height: neededHeight })
+      return { x: preferX, y: preferY }
     }
 
     const left = Math.min(...rects.map((r) => r.x))
@@ -135,7 +145,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         const defaults = SHAPE_DEFAULTS.sticky_note
         const w = width ?? defaults.width
         const h = height ?? defaults.height
-        const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
+        const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
         return {
           action: 'create' as const,
           object: {
@@ -173,7 +183,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         const defaults = SHAPE_DEFAULTS[type as ShapeType]
         const w = width ?? defaults.width
         const h = height ?? defaults.height
-        const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
+        const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
         return {
           action: 'create' as const,
           object: {
@@ -213,7 +223,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       execute: async ({ title, x, y, width, height, fill }) => {
         const frameW = width ?? 350
         const frameH = height ?? 300
-        const pos = x != null && y != null ? { x, y } : await findOpenSpace(frameW, frameH)
+        const pos = await findOpenSpace(frameW, frameH, x ?? undefined, y ?? undefined)
         const frameX = pos.x
         const frameY = pos.y
         return {
@@ -297,7 +307,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         const defaults = SHAPE_DEFAULTS.text
         const w = width ?? defaults.width
         const h = defaults.height
-        const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
+        const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
         return {
           action: 'create' as const,
           object: {
@@ -603,7 +613,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         try {
           const w = width ?? 400
           const h = height ?? 400
-          const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
+          const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
           const objects = await generateSketch(
             concept,
             pos.x,
@@ -659,7 +669,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
           const defaults = SHAPE_DEFAULTS.image
           const w = width ?? defaults.width
           const h = height ?? defaults.height
-          const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
+          const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
           return {
             action: 'create' as const,
             object: {
@@ -688,27 +698,30 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
 
     create3DModel: tool({
       description:
-        'Place an interactive 3D model on the board. Users can double-click to rotate and orbit the model. Supports basic shapes (cube, sphere, cylinder, torus) via built-in models, or a custom GLB URL.',
+        'REQUIRED when user asks for anything "3D". Place an interactive 3D model on the board. Users can double-click to rotate and orbit the model. Built-in models: astronaut, robot, horse, duck, car, helmet, lantern. Or provide a custom GLB URL.',
       inputSchema: z.object({
         shape: z
-          .enum(['cube', 'sphere', 'cylinder', 'torus', 'custom'])
-          .describe('The 3D shape to place. Use "custom" with modelUrl for external GLB files.'),
+          .enum(['astronaut', 'robot', 'horse', 'duck', 'car', 'helmet', 'lantern', 'custom'])
+          .describe('The 3D model to place. Use "custom" with modelUrl for external GLB files.'),
         modelUrl: z
           .string()
           .optional()
           .describe('URL to a .glb file (only needed for "custom" shape)'),
-        x: z.number().optional().describe('X position on canvas (default: 100)'),
-        y: z.number().optional().describe('Y position on canvas (default: 100)'),
+        x: z.number().optional().describe('X position on canvas'),
+        y: z.number().optional().describe('Y position on canvas'),
         width: z.number().optional().describe('Width in pixels (default: 250)'),
         height: z.number().optional().describe('Height in pixels (default: 250)'),
       }),
       execute: async ({ shape, modelUrl, x, y, width, height }) => {
-        // Built-in shape URLs from Google's model-viewer sample assets
+        // Built-in models from Google's model-viewer verified sample assets
         const BUILT_IN_MODELS: Record<string, string> = {
-          cube: 'https://modelviewer.dev/shared-assets/models/cube.glb',
-          sphere: 'https://modelviewer.dev/shared-assets/models/reflective-sphere.glb',
-          cylinder: 'https://modelviewer.dev/shared-assets/models/cylinder.glb',
-          torus: 'https://modelviewer.dev/shared-assets/models/torus.glb',
+          astronaut: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+          robot: 'https://modelviewer.dev/shared-assets/models/RobotExpressive.glb',
+          horse: 'https://modelviewer.dev/shared-assets/models/Horse.glb',
+          duck: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/Duck/glTF-Binary/Duck.glb',
+          car: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/ToyCar/glTF-Binary/ToyCar.glb',
+          helmet: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb',
+          lantern: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/Lantern/glTF-Binary/Lantern.glb',
         }
 
         const url = shape === 'custom' ? modelUrl : BUILT_IN_MODELS[shape]
@@ -724,7 +737,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         const defaults = SHAPE_DEFAULTS.model3d
         const w = width ?? defaults.width
         const h = height ?? defaults.height
-        const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
+        const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
         return {
           action: 'create' as const,
           object: {
@@ -763,7 +776,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
           const defaults = SHAPE_DEFAULTS.image
           const w = width ?? defaults.width
           const h = height ?? defaults.height
-          const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
+          const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
           return {
             action: 'create' as const,
             object: {
