@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import {
   createServiceRoleClient,
@@ -13,21 +14,18 @@ interface ProfileRow {
   email: string | null
 }
 
-export default async function UsersPage() {
+/** Build the base user rows from Supabase (fast) — no Langfuse dependency */
+async function getBaseUsers(): Promise<UserRow[]> {
   const supabase = await createClient()
 
-  // Get the currently signed-in user (for self-toggle protection)
   const {
     data: { user: currentUser },
   } = await supabase.auth.getUser()
 
-  // Fetch all profiles (public table, accessible to superuser via RLS)
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, display_name, email')
 
-  // Fetch auth user data for last_sign_in_at and superuser status
-  // Note: listUsers() returns 50 per page — sufficient for current user count
   const adminClient = createServiceRoleClient()
   const { data: authUsersData } = await adminClient.auth.admin.listUsers()
   const authUsers = authUsersData?.users ?? []
@@ -43,7 +41,6 @@ export default async function UsersPage() {
     ]),
   )
 
-  // Get board counts per user (as owner)
   const { data: boardCounts } = await supabase
     .from('boards')
     .select('owner_id')
@@ -53,7 +50,6 @@ export default async function UsersPage() {
     ownerCountMap.set(b.owner_id, (ownerCountMap.get(b.owner_id) || 0) + 1)
   }
 
-  // Get membership counts per user
   const { data: memberCounts } = await supabase
     .from('board_members')
     .select('user_id')
@@ -63,21 +59,7 @@ export default async function UsersPage() {
     memberCountMap.set(m.user_id, (memberCountMap.get(m.user_id) || 0) + 1)
   }
 
-  // Aggregate per-user AI cost from Langfuse traces (capped at 500 most recent)
-  const costByUserId = new Map<string, number>()
-  try {
-    const traces = await getLangfuseTraces()
-    for (const t of traces) {
-      const userId = t.metadata?.userId as string | undefined
-      if (userId && t.totalCost) {
-        costByUserId.set(userId, (costByUserId.get(userId) ?? 0) + t.totalCost)
-      }
-    }
-  } catch {
-    // Langfuse may be unavailable — cost column will show $0.0000
-  }
-
-  const users: UserRow[] = ((profiles as ProfileRow[]) || []).map((p) => {
+  return ((profiles as ProfileRow[]) || []).map((p) => {
     const authData = authUserMap.get(p.id)
     const email = p.email || authData?.email || null
     return {
@@ -88,11 +70,37 @@ export default async function UsersPage() {
       isSuperuser: authData?.isSuperuser || false,
       boardsOwned: ownerCountMap.get(p.id) || 0,
       boardsMember: memberCountMap.get(p.id) || 0,
-      aiCost: costByUserId.get(p.id) ?? 0,
+      aiCost: null, // Will be filled by Suspense
       toggleDisabled:
         email === PERMANENT_SUPERUSER_EMAIL || p.id === currentUser?.id,
     }
   })
+}
+
+/** Async server component that enriches users with Langfuse cost data */
+async function UsersTableWithCosts({ baseUsers }: { baseUsers: UserRow[] }) {
+  const costByUserId = new Map<string, number>()
+  try {
+    const traces = await getLangfuseTraces()
+    for (const t of traces) {
+      if (t.userId && t.totalCost) {
+        costByUserId.set(t.userId, (costByUserId.get(t.userId) ?? 0) + t.totalCost)
+      }
+    }
+  } catch {
+    // Langfuse unavailable — costs stay at 0
+  }
+
+  const enrichedUsers = baseUsers.map((u) => ({
+    ...u,
+    aiCost: costByUserId.get(u.id) ?? 0,
+  }))
+
+  return <SortableUsersTable users={enrichedUsers} />
+}
+
+export default async function UsersPage() {
+  const users = await getBaseUsers()
 
   return (
     <div>
@@ -101,7 +109,9 @@ export default async function UsersPage() {
         All registered users ({users.length} total)
       </p>
 
-      <SortableUsersTable users={users} />
+      <Suspense fallback={<SortableUsersTable users={users} />}>
+        <UsersTableWithCosts baseUsers={users} />
+      </Suspense>
     </div>
   )
 }

@@ -19,6 +19,7 @@ import type { AgentBackend } from '@/types/board'
 export interface LangfuseTrace {
   id: string
   name?: string
+  userId?: string
   latency?: number
   totalCost?: number
   tags?: string[]
@@ -293,8 +294,7 @@ export function computeUserConsumption(
 ): UserCostRow[] {
   const map = new Map<string, { cost: number; traces: number }>()
   for (const t of traces) {
-    const userId = t.metadata?.userId as string | undefined
-    const key = userId ?? 'anonymous'
+    const key = t.userId ?? 'anonymous'
     const existing = map.get(key) ?? { cost: 0, traces: 0 }
     existing.cost += t.totalCost ?? 0
     existing.traces += 1

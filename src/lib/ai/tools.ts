@@ -30,6 +30,85 @@ const SHAPE_TYPES = [
  * Exception: getBoardState reads from Supabase server-side.
  */
 export function aiTools(boardId: string, supabase: SupabaseClient) {
+  // Track positions allocated during this AI turn to avoid overlap between consecutive creates
+  const allocated: Array<{ x: number; y: number; width: number; height: number }> = []
+
+  /**
+   * Find an unoccupied area on the board for a new object.
+   * Queries existing objects + tracks positions allocated in this turn.
+   * Tries: right of content → below content → fallback right-top.
+   */
+  async function findOpenSpace(
+    neededWidth: number,
+    neededHeight: number,
+  ): Promise<{ x: number; y: number }> {
+    const { data } = await supabase
+      .from('board_objects')
+      .select('x, y, width, height')
+      .eq('board_id', boardId)
+
+    const rects = [
+      ...(data || []).map((o) => ({
+        x: o.x as number,
+        y: o.y as number,
+        width: o.width as number,
+        height: o.height as number,
+      })),
+      ...allocated,
+    ]
+
+    if (rects.length === 0) {
+      allocated.push({ x: 100, y: 100, width: neededWidth, height: neededHeight })
+      return { x: 100, y: 100 }
+    }
+
+    const PAD = 40
+
+    function overlaps(px: number, py: number): boolean {
+      for (const r of rects) {
+        if (
+          px < r.x + r.width + PAD &&
+          px + neededWidth > r.x - PAD &&
+          py < r.y + r.height + PAD &&
+          py + neededHeight > r.y - PAD
+        ) {
+          return true
+        }
+      }
+      return false
+    }
+
+    const left = Math.min(...rects.map((r) => r.x))
+    const top = Math.min(...rects.map((r) => r.y))
+    const right = Math.max(...rects.map((r) => r.x + r.width))
+    const bottom = Math.max(...rects.map((r) => r.y + r.height))
+
+    // Try right of existing content at various y offsets
+    const yStep = Math.max(neededHeight / 2, 50)
+    for (let y = top; y <= bottom + neededHeight; y += yStep) {
+      if (!overlaps(right + PAD, y)) {
+        const pos = { x: right + PAD, y }
+        allocated.push({ ...pos, width: neededWidth, height: neededHeight })
+        return pos
+      }
+    }
+
+    // Try below existing content at various x offsets
+    const xStep = Math.max(neededWidth / 2, 50)
+    for (let x = left; x <= right + neededWidth; x += xStep) {
+      if (!overlaps(x, bottom + PAD)) {
+        const pos = { x, y: bottom + PAD }
+        allocated.push({ ...pos, width: neededWidth, height: neededHeight })
+        return pos
+      }
+    }
+
+    // Fallback: place to the right
+    const pos = { x: right + PAD, y: top }
+    allocated.push({ ...pos, width: neededWidth, height: neededHeight })
+    return pos
+  }
+
   return {
     // ── Creation Tools ──────────────────────────────────────────────
 
@@ -54,15 +133,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
       execute: async ({ text, x, y, color, width, height }) => {
         const defaults = SHAPE_DEFAULTS.sticky_note
+        const w = width ?? defaults.width
+        const h = height ?? defaults.height
+        const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
         return {
           action: 'create' as const,
           object: {
             id: crypto.randomUUID(),
             type: 'sticky_note' as const,
-            x: x ?? 100,
-            y: y ?? 100,
-            width: width ?? defaults.width,
-            height: height ?? defaults.height,
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
             fill: color ?? defaults.fill,
             text,
             z_index: 0,
@@ -89,15 +171,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
       execute: async ({ type, x, y, width, height, fill, stroke, strokeWidth }) => {
         const defaults = SHAPE_DEFAULTS[type as ShapeType]
+        const w = width ?? defaults.width
+        const h = height ?? defaults.height
+        const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
         return {
           action: 'create' as const,
           object: {
             id: crypto.randomUUID(),
             type,
-            x: x ?? 100,
-            y: y ?? 100,
-            width: width ?? defaults.width,
-            height: height ?? defaults.height,
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
             fill: fill ?? defaults.fill,
             stroke: stroke ?? defaults.stroke,
             strokeWidth: strokeWidth ?? defaults.strokeWidth,
@@ -126,9 +211,11 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
           .describe('Background color hex (default: #f1f5f9, light gray)'),
       }),
       execute: async ({ title, x, y, width, height, fill }) => {
-        const frameX = x ?? 100
-        const frameY = y ?? 100
         const frameW = width ?? 350
+        const frameH = height ?? 300
+        const pos = x != null && y != null ? { x, y } : await findOpenSpace(frameW, frameH)
+        const frameX = pos.x
+        const frameY = pos.y
         return {
           action: 'create' as const,
           object: {
@@ -137,7 +224,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
             x: frameX,
             y: frameY,
             width: frameW,
-            height: height ?? 300,
+            height: frameH,
             fill: fill ?? '#f1f5f9',
             stroke: '#94a3b8',
             strokeWidth: 2,
@@ -208,15 +295,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
       execute: async ({ text, x, y, fontSize, color, width, fontFamily }) => {
         const defaults = SHAPE_DEFAULTS.text
+        const w = width ?? defaults.width
+        const h = defaults.height
+        const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
         return {
           action: 'create' as const,
           object: {
             id: crypto.randomUUID(),
             type: 'text' as const,
-            x: x ?? 100,
-            y: y ?? 100,
-            width: width ?? defaults.width,
-            height: defaults.height,
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
             fill: color ?? defaults.fill,
             text,
             fontSize: fontSize ?? 18,
@@ -511,12 +601,15 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
       execute: async ({ concept, x, y, width, height }) => {
         try {
+          const w = width ?? 400
+          const h = height ?? 400
+          const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
           const objects = await generateSketch(
             concept,
-            x ?? 100,
-            y ?? 100,
-            width ?? 400,
-            height ?? 400,
+            pos.x,
+            pos.y,
+            w,
+            h,
           )
 
           if (objects.length === 0) {
@@ -564,15 +657,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         try {
           const { dataUrl } = await generateSvg(concept, style)
           const defaults = SHAPE_DEFAULTS.image
+          const w = width ?? defaults.width
+          const h = height ?? defaults.height
+          const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
           return {
             action: 'create' as const,
             object: {
               id: crypto.randomUUID(),
               type: 'image' as const,
-              x: x ?? 100,
-              y: y ?? 100,
-              width: width ?? defaults.width,
-              height: height ?? defaults.height,
+              x: pos.x,
+              y: pos.y,
+              width: w,
+              height: h,
               fill: 'transparent',
               imageUrl: dataUrl,
               z_index: 0,
@@ -626,15 +722,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         }
 
         const defaults = SHAPE_DEFAULTS.model3d
+        const w = width ?? defaults.width
+        const h = height ?? defaults.height
+        const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
         return {
           action: 'create' as const,
           object: {
             id: crypto.randomUUID(),
             type: 'model3d' as const,
-            x: x ?? 100,
-            y: y ?? 100,
-            width: width ?? defaults.width,
-            height: height ?? defaults.height,
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
             fill: defaults.fill,
             modelUrl: url,
             cameraOrbit: '0deg 75deg 2.5m',
@@ -662,15 +761,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
         try {
           const { dataUrl } = await generateImage(prompt)
           const defaults = SHAPE_DEFAULTS.image
+          const w = width ?? defaults.width
+          const h = height ?? defaults.height
+          const pos = x != null && y != null ? { x, y } : await findOpenSpace(w, h)
           return {
             action: 'create' as const,
             object: {
               id: crypto.randomUUID(),
               type: 'image' as const,
-              x: x ?? 100,
-              y: y ?? 100,
-              width: width ?? defaults.width,
-              height: height ?? defaults.height,
+              x: pos.x,
+              y: pos.y,
+              width: w,
+              height: h,
               fill: 'transparent',
               imageUrl: dataUrl,
               z_index: 0,

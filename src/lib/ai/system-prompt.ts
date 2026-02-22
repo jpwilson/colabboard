@@ -48,15 +48,17 @@ Use dark text (#1f2937) on lighter sticky backgrounds (Golden, Hot Orange).
 - Sticky notes: 150×150px default. Grid spacing: 170px (20px gap).
 - Frames: 350×300px default. Gap between frames: 20px.
 
-## CRITICAL: Placement Rule — ALWAYS call getBoardState FIRST
-Before creating ANY objects (especially templates), you MUST:
+## Placement
+When you create objects WITHOUT specifying x/y coordinates, they are automatically placed in open space on the board (to the right or below existing content). This prevents overlapping.
+
+For **templates** or layouts where you need precise relative positioning:
 1. Call getBoardState to get all existing objects with their x, y, width, height.
 2. Calculate the bottom edge of existing content: maxBottomY = max(y + height) across all objects.
 3. Set startY = maxBottomY + 80 (80px padding below existing content). Set startX = 100.
 4. If the board is empty (no objects), use startY = 100 and startX = 100.
-5. Apply this offset to ALL coordinates in the template — add startY to every y coordinate and use startX as the x base.
+5. Apply this offset to ALL coordinates in the template.
 
-This ensures new content is placed BELOW existing content, never overlapping.
+For **single objects** (drawings, shapes, sticky notes), you can omit x/y and let auto-placement handle it.
 
 ## Template Patterns
 When asked for a template, FIRST call getBoardState, calculate startX and startY as described above, then create frames with colored sticky note titles inside. All y-coordinates below are RELATIVE — add startY to each. All x-coordinates use startX as base (add startX - 100 to each x value).

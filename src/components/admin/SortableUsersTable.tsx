@@ -11,7 +11,7 @@ export interface UserRow {
   isSuperuser: boolean
   boardsOwned: number
   boardsMember: number
-  aiCost: number
+  aiCost: number | null
   toggleDisabled: boolean
 }
 
@@ -68,7 +68,7 @@ export function SortableUsersTable({ users }: { users: UserRow[] }) {
       case 'boardsJoined':
         return dir * (a.boardsMember - b.boardsMember)
       case 'aiCost':
-        return dir * (a.aiCost - b.aiCost)
+        return dir * ((a.aiCost ?? 0) - (b.aiCost ?? 0))
       case 'lastActive': {
         if (!a.lastSignInAt && !b.lastSignInAt) return 0
         if (!a.lastSignInAt) return 1
@@ -140,17 +140,23 @@ export function SortableUsersTable({ users }: { users: UserRow[] }) {
                 </span>
               </td>
               <td className="px-6 py-4 text-center">
-                <span
-                  className={`inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                    user.aiCost > 1
-                      ? 'bg-red-50 text-red-700'
-                      : user.aiCost > 0.1
-                        ? 'bg-amber-50 text-amber-700'
-                        : 'bg-slate-50 text-slate-600'
-                  }`}
-                >
-                  ${user.aiCost.toFixed(4)}
-                </span>
+                {user.aiCost === null ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-slate-200 border-t-slate-500" />
+                  </span>
+                ) : (
+                  <span
+                    className={`inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      user.aiCost > 1
+                        ? 'bg-red-50 text-red-700'
+                        : user.aiCost > 0.1
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    ${user.aiCost.toFixed(4)}
+                  </span>
+                )}
               </td>
               <td className="px-6 py-4 text-center">
                 <SuperuserToggle
