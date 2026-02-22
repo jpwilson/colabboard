@@ -45,6 +45,16 @@ export default function ChangelogPage() {
                   >
                     {entry.tag}
                   </span>
+                  {entry.commit && (
+                    <a
+                      href={`https://github.com/jpwilson/colabboard/commit/${entry.commit}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-auto text-[10px] font-medium text-blue-500 hover:text-blue-700 hover:underline"
+                    >
+                      Code changes
+                    </a>
+                  )}
                 </div>
                 <h3 className="mb-1 text-sm font-semibold text-slate-800">
                   {entry.title}

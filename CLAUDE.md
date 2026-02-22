@@ -272,3 +272,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 - Do NOT introduce new frameworks, libraries, or major dependencies without user approval
 - The stack is: Next.js 16, React 19, Supabase, react-konva, Tailwind v4, Vitest, Playwright
 - If a task seems to need a new dependency, discuss alternatives using existing tools first
+
+### Changelog Rules
+
+- Only add entries to `src/lib/changelog-data.ts` for work that has been **merged to main**
+- Do NOT add changelog entries for features still on a feature branch
+- Each entry should include a `commit` field with the short SHA of the last relevant commit (links to GitHub)
+- When merging a feature branch, add or update the changelog entry in the same merge commit

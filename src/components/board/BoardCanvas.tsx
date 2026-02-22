@@ -53,7 +53,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const [stageScale, setStageScale] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
   type GridMode = 'none' | 'dots' | 'lines'
-  const [gridMode, setGridMode] = useState<GridMode>('dots')
+  const [gridMode, setGridMode] = useState<GridMode>('none')
   const [displayName, setDisplayName] = useState(boardName || '')
 
   // Freedraw state

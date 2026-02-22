@@ -3,23 +3,18 @@ export interface ChangelogEntry {
   title: string
   description: string
   tag: 'feature' | 'fix' | 'infra' | 'docs'
+  commit?: string // short SHA — links to GitHub commit
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
-  // Newest first
-  {
-    date: '2026-02-22',
-    title: 'AI Drawing with SketchAgent + perfect-freehand',
-    description:
-      'Integrated MIT CSAIL\'s SketchAgent approach to generate recognizable hand-drawn sketches from text prompts ("draw a horse", "sketch a sailboat"). Added perfect-freehand library for pressure-sensitive, tapered stroke rendering. New Drawing Tools section in AI panel with domain-specific drawing prompts. Fixed domain strip label truncation by stacking text below icons.',
-    tag: 'feature',
-  },
+  // Newest first — only entries merged to main
   {
     date: '2026-02-21',
     title: 'Bold Color Palette & Vertical Domain Strip',
     description:
       'Replaced pastel sticky note colors with bold vivid palette (Golden, Electric Blue, Crimson, Emerald, Hot Orange, Royal Purple, Magenta, Teal). Added dynamic text contrast for readability on dark backgrounds. Moved domain selectors to vertical strip on right edge of AI panel. Replaced tab-based suggestions with always-expanded accordion.',
     tag: 'feature',
+    commit: 'bdfa9e4',
   },
   {
     date: '2026-02-21',
@@ -27,6 +22,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Refactored admin analytics to use direct Langfuse API for accurate cost and latency metrics. Added 6 domain template packs (General, Business, Product, Engineering, Education, Science) with domain-specific templates, edit prompts, and layout prompts. Added GDPR-compliant cookie consent banner.',
     tag: 'feature',
+    commit: 'bdfa9e4',
   },
   {
     date: '2026-02-20',
@@ -34,6 +30,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Auto-centers AI panel on open with smart positioning. Resizable panel with drag handles. Follow-up suggestions after AI actions. Concise/verbose mode toggle. Gold accent theme. System prompt improvements for better template placement.',
     tag: 'feature',
+    commit: '5f7b963',
   },
   {
     date: '2026-02-19',
@@ -41,6 +38,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Added admin users page with sortable columns, superuser toggle (with self-protection), and last active timestamps. Admin boards overview. Refined admin button styling. Central Time display for user activity.',
     tag: 'feature',
+    commit: 'c0437cb',
   },
   {
     date: '2026-02-18',
@@ -48,6 +46,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Added cost analysis dashboard showing token usage, model costs, per-user consumption, and daily trends. Production projections estimating costs at 100/1K/10K/100K user scales with optimization recommendations.',
     tag: 'feature',
+    commit: 'f776ec3',
   },
   {
     date: '2026-02-17',
@@ -55,6 +54,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Added admin panel quick links on dashboard. Board sharing information display. Dark mode support. Undo/redo for AI actions. AI hub with template suggestions. Verbose/concise response toggle.',
     tag: 'feature',
+    commit: '824914d',
   },
   {
     date: '2026-02-16',
@@ -62,6 +62,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Added text type as a first-class board object — standalone labels, headings, and annotations without colored backgrounds. AI createText tool. Double-click editing with font size control.',
     tag: 'feature',
+    commit: '0224c80',
   },
   {
     date: '2026-02-15',
@@ -69,6 +70,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Shift-click and marquee (rubber-band) selection for selecting multiple objects. Group move, resize, delete, and color change operations. Multi-object transformer.',
     tag: 'feature',
+    commit: '4018014',
   },
   {
     date: '2026-02-15',
@@ -76,6 +78,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Added disconnect/reconnect handling with visual connection status indicator. Automatic retry on network interruption. Graceful degradation when Supabase Realtime is unavailable.',
     tag: 'feature',
+    commit: '985e1dd',
   },
   {
     date: '2026-02-14',
@@ -83,6 +86,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Launched AI board assistant with 11 tools (create sticky notes, shapes, connectors, text, freedraw; move, resize, recolor, delete objects; arrange layouts; read board state). 8 built-in templates. Langfuse integration for tracing and cost monitoring. Eval framework with programmatic + LLM-as-Judge scoring.',
     tag: 'feature',
+    commit: '9a3f746',
   },
   {
     date: '2026-02-13',
@@ -90,6 +94,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Superuser-only admin portal with overview dashboard, agent backend selector (Vercel AI SDK vs Docker/Python), model picker, and health checks. App config stored in Supabase.',
     tag: 'feature',
+    commit: 'c1191eb',
   },
   {
     date: '2026-02-12',
@@ -97,6 +102,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Added 15 shape types (rectangle, rounded rectangle, circle, ellipse, triangle, diamond, star, hexagon, pentagon, arrow, line, and more). Properties panel for color, stroke, opacity, font. Freedraw tool with smooth curves. Connectors between objects.',
     tag: 'feature',
+    commit: '1f636af',
   },
   {
     date: '2026-02-11',
@@ -104,6 +110,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Share boards via invite link with role-based access (owner, editor, viewer). Magic link passwordless authentication as default sign-in method. Email + password still available.',
     tag: 'feature',
+    commit: '2ee8929',
   },
   {
     date: '2026-02-10',
@@ -111,6 +118,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'New Orim branding with robot mascot. Redesigned dashboard with board cards, member avatars, and quick actions. Split sign-in layout with illustration.',
     tag: 'feature',
+    commit: 'e11edff',
   },
   {
     date: '2026-02-09',
@@ -118,6 +126,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Fixed cursor lag with world-coordinate tracking. Added zoom controls (+/-/fit). Board rename in-place. Grid toggle. Auto-fit to content on board load. Cursor interpolation for smoother remote movement.',
     tag: 'fix',
+    commit: 'c020d6e',
   },
   {
     date: '2026-02-08',
@@ -125,6 +134,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Added landing page with glassmorphism design, feature highlights, and call-to-action. Fixed login page theme consistency.',
     tag: 'feature',
+    commit: 'e11edff',
   },
   {
     date: '2026-02-07',
@@ -132,6 +142,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Polished dashboard UI with board previews and improved navigation. Added window resize handler for responsive layout. Debounced New Board button to prevent duplicates.',
     tag: 'feature',
+    commit: '4dbccab',
   },
   {
     date: '2026-02-06',
@@ -139,6 +150,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Three-layer sync: Supabase Broadcast for instant updates, Postgres for persistence, Postgres Changes for catch-up. Last-Write-Wins conflict resolution via updated_at timestamps.',
     tag: 'feature',
+    commit: '02ae677',
   },
   {
     date: '2026-02-05',
@@ -146,6 +158,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Live cursor tracking using Supabase Realtime Presence. See other users\' cursors in real-time with name labels and smooth movement. Throttled at 50ms for performance.',
     tag: 'feature',
+    commit: '821803f',
   },
   {
     date: '2026-02-04',
@@ -153,6 +166,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Added Vitest bench framework for canvas operations. Benchmarks for object creation, rendering, and sync operations. CI integration for performance regression detection.',
     tag: 'infra',
+    commit: 'c48b0fd',
   },
   {
     date: '2026-02-03',
@@ -160,6 +174,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Email/password and Google/GitHub OAuth via Supabase Auth. Login page, protected routes, session management with Next.js 16 proxy pattern. Dashboard and board routes with auth guards.',
     tag: 'feature',
+    commit: '4f825f6',
   },
   {
     date: '2026-02-02',
@@ -167,6 +182,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Built the core canvas with react-konva — infinite pan/zoom, sticky notes, rectangle shapes, drag-to-move, resize transforms, and text editing via HTML textarea overlay.',
     tag: 'feature',
+    commit: 'ecda03d',
   },
   {
     date: '2026-02-01',
@@ -174,5 +190,6 @@ export const CHANGELOG: ChangelogEntry[] = [
     description:
       'Initialized Next.js 16 with TypeScript, Tailwind CSS v4, App Router. Configured Vitest, Playwright, ESLint flat config, Prettier. Set up Supabase SSR clients and CI pipeline with GitHub Actions.',
     tag: 'infra',
+    commit: 'a062381',
   },
 ]
