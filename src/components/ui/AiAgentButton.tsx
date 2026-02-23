@@ -592,6 +592,41 @@ export function AiAgentPanel({
             </div>
           </div>
 
+          {/* 3D Test Ribbon — TEMPORARY for testing */}
+          <div className="flex items-center gap-1.5 border-b border-amber-200 bg-amber-50/80 px-3 py-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">3D Test:</span>
+            {[
+              { label: '📦 Cube', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Box/glTF-Binary/Box.glb' },
+              { label: '🪖 Helmet', url: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb' },
+              { label: '🧑‍🚀 Astronaut', url: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb' },
+              { label: '🤖 Robot', url: 'https://modelviewer.dev/shared-assets/models/RobotExpressive.glb' },
+              { label: '🦆 Duck', url: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/Duck/glTF-Binary/Duck.glb' },
+            ].map((model) => (
+              <button
+                key={model.label}
+                onClick={() => {
+                  const obj: CanvasObject = {
+                    id: crypto.randomUUID(),
+                    type: 'model3d',
+                    x: 100 + Math.random() * 400,
+                    y: 100 + Math.random() * 400,
+                    width: 250,
+                    height: 250,
+                    fill: '#f1f5f9',
+                    modelUrl: model.url,
+                    cameraOrbit: '0deg 75deg 2.5m',
+                    z_index: nextZIndex,
+                    updated_at: new Date().toISOString(),
+                  }
+                  onAddObject(obj)
+                }}
+                className="rounded-md bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-amber-100 hover:shadow active:scale-95"
+              >
+                {model.label}
+              </button>
+            ))}
+          </div>
+
           {/* Content row: messages+suggestions+input | domain strip */}
           <div className="flex flex-1 overflow-hidden">
             {/* Main column */}
@@ -857,13 +892,7 @@ function DomainStrip({
   )
 }
 
-const DRAWING_ICON = (
-  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" />
-  </svg>
-)
-
-type SuggestionTab = 'Create' | 'Edit' | 'Layout' | 'Draw'
+type SuggestionTab = 'Create' | 'Edit' | 'Layout'
 
 function SuggestionAccordion({
   onSelect,
@@ -892,9 +921,6 @@ function SuggestionAccordion({
       { key: 'Edit', label: 'Edit', icon: CATEGORY_ICONS.Edit, commands: domainPack.editPrompts },
       { key: 'Layout', label: 'Layout', icon: CATEGORY_ICONS.Layout, commands: domainPack.layoutPrompts },
     ]
-    if (domainPack.drawingPrompts.length > 0) {
-      result.push({ key: 'Draw', label: 'Draw', icon: DRAWING_ICON, commands: domainPack.drawingPrompts })
-    }
     return result
   }, [domainPack])
 
@@ -949,7 +975,7 @@ function SuggestionAccordion({
                 key={cmd.label}
                 onClick={() => { if (!disabled) onSelect(cmd.prompt) }}
                 disabled={disabled}
-                className={`rounded-full ${activeTab === 'Draw' ? 'border border-slate-200 bg-white' : 'bg-slate-50'} px-2 py-0.5 ${pillTextClass} font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50`}
+                className={`rounded-full bg-slate-50 px-2 py-0.5 ${pillTextClass} font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50`}
               >
                 {cmd.label}
               </button>

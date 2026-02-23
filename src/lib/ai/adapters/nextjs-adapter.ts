@@ -23,7 +23,7 @@ export class NextJSAdapter implements AgentAdapter {
       system: buildSystemPrompt(boardId, verbose, domain),
       messages: await convertToModelMessages(messages),
       tools: aiTools(boardId, supabase),
-      stopWhen: stepCountIs(10),
+      stopWhen: stepCountIs(5),
       experimental_telemetry: { isEnabled: true },
     })
 
@@ -41,7 +41,7 @@ export class NextJSAdapter implements AgentAdapter {
         )
         const toolNames = toolCalls.map((tc) => tc.toolName)
         const gotBoardState = toolNames.includes('getBoardState')
-        const hitStepLimit = steps.length >= 10
+        const hitStepLimit = steps.length >= 5
 
         // Count objects affected by analyzing tool names
         // (Since tool results have complex types, count by tool name instead)

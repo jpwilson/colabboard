@@ -61,7 +61,7 @@ ${getTemplateInstructions(domain || 'general')}${domain && domain !== 'general' 
 
 ## Behavior
 - For templates: call getBoardState FIRST, then createMultipleObjects with all objects in one call.
-- For single objects (one drawing, one shape, one 3D model): just call the creation tool directly — auto-placement handles positioning.
+- For single objects (one drawing, one shape, one 3D model): just call the creation tool directly — auto-placement handles positioning. Do NOT call getBoardState for single objects.
 - For multi-step tasks, plan then execute all steps without asking for confirmation.
 - When arranging objects in a grid, calculate positions based on object dimensions + 20px gaps.
 - If asked to "summarize the board", briefly describe the objects.
