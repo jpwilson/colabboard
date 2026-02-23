@@ -100,8 +100,16 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'id and storage_path required' }, { status: 400 })
   }
 
-  // Delete from storage
-  await supabase.storage.from('3d-models').remove([storage_path])
+  // Delete from storage — handle both single files and directories (Sketchfab imports)
+  const { data: files } = await supabase.storage.from('3d-models').list(storage_path)
+  if (files && files.length > 0) {
+    // It's a directory — delete all files inside it
+    const paths = files.map((f) => `${storage_path}/${f.name}`)
+    await supabase.storage.from('3d-models').remove(paths)
+  } else {
+    // Single file
+    await supabase.storage.from('3d-models').remove([storage_path])
+  }
   // Delete tracking record (RLS ensures user can only delete own)
   await supabase.from('model_uploads').delete().eq('id', id)
 

@@ -5,12 +5,23 @@ import { inflateRawSync } from 'zlib'
 const SKETCHFAB_TOKEN = process.env.SKETCHFAB_API_TOKEN
 const MAX_UPLOADS_PER_USER = 10
 
+// MIME types for common file extensions
+const MIME_TYPES: Record<string, string> = {
+  glb: 'model/gltf-binary',
+  gltf: 'model/gltf+json',
+  bin: 'application/octet-stream',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+}
+
 /**
  * Import a 3D model from Sketchfab.
  * 1. Gets the download URL from Sketchfab (requires API token)
  * 2. Downloads the glTF zip
- * 3. Extracts the .glb or .gltf+bin and uploads to Supabase Storage
- * 4. Returns the public URL
+ * 3. Extracts ALL files (gltf + bin + textures) and uploads to Supabase Storage
+ * 4. Returns the public URL of the main model file
  */
 export async function POST(request: Request) {
   if (!SKETCHFAB_TOKEN) {
@@ -65,41 +76,46 @@ export async function POST(request: Request) {
     }
     const zipBuffer = await zipRes.arrayBuffer()
 
-    // Step 3: Extract GLB/glTF from zip using built-in DecompressionStream or raw parsing
-    // Sketchfab zips typically contain scene.gltf + scene.bin + textures/
-    // For simplicity, we'll store the entire zip and use a workaround,
-    // OR we can try to find a .glb file in the zip.
-    // Actually, let's just store the raw zip bytes and see if model-viewer can handle glTF.
-    // Better approach: use the ZIP as-is won't work with model-viewer.
-    // We need to extract. Let's do minimal zip parsing to find the main file.
-    const extracted = extractFromZip(new Uint8Array(zipBuffer))
-    if (!extracted) {
-      return NextResponse.json({ error: 'Could not extract 3D model from archive' }, { status: 422 })
+    // Step 3: Extract ALL files from the zip
+    const files = extractAllFromZip(new Uint8Array(zipBuffer))
+    if (files.length === 0) {
+      return NextResponse.json({ error: 'Could not extract files from archive' }, { status: 422 })
     }
 
-    // Step 4: Upload to Supabase Storage
+    // Find the main model file (.glb preferred, then .gltf)
+    const mainFile = files.find((f) => f.name.endsWith('.glb'))
+      || files.find((f) => f.name.endsWith('.gltf'))
+    if (!mainFile) {
+      return NextResponse.json({ error: 'No 3D model file found in archive' }, { status: 422 })
+    }
+
+    // Step 4: Upload ALL files to Supabase Storage, preserving directory structure
     const safeName = (name || uid).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50)
-    const storagePath = `${user.id}/${uid}_${safeName}.${extracted.ext}`
+    const baseDir = `${user.id}/${uid}_${safeName}`
+    let totalSize = 0
 
-    const { error: uploadError } = await supabase.storage
-      .from('3d-models')
-      .upload(storagePath, extracted.data, {
-        contentType: extracted.ext === 'glb' ? 'model/gltf-binary' : 'model/gltf+json',
-        upsert: true,
-      })
-    if (uploadError) {
-      return NextResponse.json({ error: `Storage upload failed: ${uploadError.message}` }, { status: 500 })
+    for (const file of files) {
+      const ext = file.name.split('.').pop()?.toLowerCase() || ''
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream'
+      const filePath = `${baseDir}/${file.name}`
+
+      await supabase.storage
+        .from('3d-models')
+        .upload(filePath, file.data, { contentType, upsert: true })
+
+      totalSize += file.data.byteLength
     }
 
-    // Step 5: Get public URL
-    const { data: urlData } = supabase.storage.from('3d-models').getPublicUrl(storagePath)
+    // Step 5: Get public URL of the main model file
+    const mainPath = `${baseDir}/${mainFile.name}`
+    const { data: urlData } = supabase.storage.from('3d-models').getPublicUrl(mainPath)
 
     // Step 6: Track the upload
     await supabase.from('model_uploads').insert({
       user_id: user.id,
       file_name: safeName,
-      storage_path: storagePath,
-      file_size: extracted.data.byteLength,
+      storage_path: baseDir,
+      file_size: totalSize,
       source: 'sketchfab',
     })
 
@@ -110,20 +126,22 @@ export async function POST(request: Request) {
   }
 }
 
+interface ZipEntry {
+  name: string
+  data: Uint8Array
+}
+
 /**
- * Minimal ZIP parser — extracts the first .glb or scene.gltf file from a ZIP archive.
- * Supports both stored (compMethod=0) and deflate (compMethod=8) entries.
- * ZIP format: each file has a local file header starting with PK\x03\x04
+ * Extract ALL files from a ZIP archive.
+ * Supports stored (compMethod=0) and deflate (compMethod=8) entries.
+ * Skips directories and zero-byte files.
  */
-function extractFromZip(zip: Uint8Array): { data: Uint8Array; ext: string } | null {
+function extractAllFromZip(zip: Uint8Array): ZipEntry[] {
   const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength)
   let offset = 0
-
-  let glbFile: { data: Uint8Array; ext: string } | null = null
-  let gltfFile: { data: Uint8Array; ext: string } | null = null
+  const entries: ZipEntry[] = []
 
   while (offset < zip.length - 4) {
-    // Look for local file header signature PK\x03\x04
     if (view.getUint32(offset, true) !== 0x04034b50) break
 
     const compMethod = view.getUint16(offset + 8, true)
@@ -133,31 +151,28 @@ function extractFromZip(zip: Uint8Array): { data: Uint8Array; ext: string } | nu
     const fileName = new TextDecoder().decode(zip.slice(offset + 30, offset + 30 + nameLen))
     const dataStart = offset + 30 + nameLen + extraLen
 
-    if (fileName.endsWith('.glb') || (fileName.endsWith('.gltf') && !gltfFile)) {
+    // Skip directories and empty files
+    if (!fileName.endsWith('/') && compSize > 0) {
       const compressedData = zip.slice(dataStart, dataStart + compSize)
-      let fileData: Uint8Array
+      let fileData: Uint8Array | null = null
 
       if (compMethod === 0) {
-        // Stored (not compressed)
         fileData = compressedData
       } else if (compMethod === 8) {
-        // Deflate — use Node.js zlib
-        fileData = new Uint8Array(inflateRawSync(Buffer.from(compressedData)))
-      } else {
-        // Unsupported compression method — skip
-        offset = dataStart + compSize
-        continue
+        try {
+          fileData = new Uint8Array(inflateRawSync(Buffer.from(compressedData)))
+        } catch {
+          // Skip files that fail to decompress
+        }
       }
 
-      if (fileName.endsWith('.glb')) {
-        glbFile = { data: fileData, ext: 'glb' }
-      } else {
-        gltfFile = { data: fileData, ext: 'gltf' }
+      if (fileData) {
+        entries.push({ name: fileName, data: fileData })
       }
     }
 
     offset = dataStart + compSize
   }
 
-  return glbFile || gltfFile
+  return entries
 }
