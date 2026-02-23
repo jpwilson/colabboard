@@ -118,10 +118,6 @@ const ModelViewerItem = memo(function ModelViewerItem({
 }) {
   const mvRef = useRef<ModelViewerElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Track isController via ref so the follower effect doesn't re-trigger on transition
-  const isControllerRef = useRef(isController)
-  useEffect(() => { isControllerRef.current = isController }, [isController])
-
   // ── CONTROLLER: Send camera state while controlling ──
   const handleCameraChange = useCallback(() => {
     if (!isController) return
@@ -141,7 +137,7 @@ const ModelViewerItem = memo(function ModelViewerItem({
   // Attach camera-change event listener
   useEffect(() => {
     const mv = mvRef.current
-    console.log(`[3D-SYNC] Attaching camera-change listener, mv=${!!mv}, isController=${isController}`)
+    console.log(`[3D-SYNC] Attaching camera-change listener, mv=${!!mv}`)
     if (!mv) return
 
     mv.addEventListener('camera-change', handleCameraChange)
@@ -166,13 +162,21 @@ const ModelViewerItem = memo(function ModelViewerItem({
   }, [objId, cameraOrbit, onExitInteraction])
 
   // ── FOLLOWER: Apply incoming camera updates ──
-  // Only depends on cameraOrbit — NOT isController. This prevents the snap-back
-  // on exit where the stale prop value would override the model-viewer's actual state.
+  // Track previous cameraOrbit to only apply when it genuinely changes (not on isController transition)
+  const prevOrbitRef = useRef(cameraOrbit)
   useEffect(() => {
-    if (isControllerRef.current) {
+    if (isController) {
       console.log(`[3D-SYNC] FOLLOWER effect skipped (isController), orbit prop="${cameraOrbit}"`)
+      prevOrbitRef.current = cameraOrbit
       return
     }
+    // Only apply when cameraOrbit actually changed — prevents snap-back on isController transition
+    if (cameraOrbit === prevOrbitRef.current) {
+      console.log(`[3D-SYNC] FOLLOWER effect skipped (orbit unchanged="${cameraOrbit}")`)
+      prevOrbitRef.current = cameraOrbit
+      return
+    }
+    prevOrbitRef.current = cameraOrbit
     const mv = mvRef.current
     if (!mv) {
       console.log(`[3D-SYNC] FOLLOWER effect skipped (no mv ref)`)
@@ -184,7 +188,7 @@ const ModelViewerItem = memo(function ModelViewerItem({
     if (typeof mv.jumpCameraToGoal === 'function') {
       mv.jumpCameraToGoal()
     }
-  }, [cameraOrbit])
+  }, [cameraOrbit, isController])
 
   return (
     <div
