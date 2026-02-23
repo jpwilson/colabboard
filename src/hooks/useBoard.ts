@@ -227,7 +227,23 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         updated_at: updated.updated_at,
       }
 
-      // Persist to database first, then broadcast
+      // For camera-only updates during interaction, broadcast immediately and
+      // skip DB persistence (the final state is persisted on exit via atomic write).
+      // This gives real-time sync without DB round-trip latency.
+      const isCameraOnly = updates.cameraOrbit !== undefined
+        && updates.controlledBy === undefined
+        && Object.keys(updates).filter(k => k !== 'cameraOrbit' && k !== 'updated_at').length === 0
+
+      if (isCameraOnly) {
+        console.log(`[3D-SYNC] FAST broadcast (no DB): cameraOrbit="${updated.cameraOrbit}"`)
+        broadcast({ type: 'update', object: boardObj })
+        return
+      }
+
+      // Broadcast immediately for all other updates too (optimistic)
+      broadcast({ type: 'update', object: boardObj })
+
+      // Then persist to database
       const supabase = createClient()
       const { error } = await supabase
         .from('board_objects')
@@ -247,13 +263,7 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         console.error('Failed to update object:', error)
         objectsRef.current.set(id, previous)
         syncState()
-        return
       }
-      if (updates.cameraOrbit !== undefined || updates.controlledBy !== undefined) {
-        const d = boardObj.data as Record<string, unknown>
-        console.log(`[3D-SYNC] useBoard BROADCAST sent: cameraOrbit="${d.cameraOrbit}", controlledBy="${d.controlledBy}"`)
-      }
-      broadcast({ type: 'update', object: boardObj })
     },
     [boardId, userId, syncState, broadcast],
   )
