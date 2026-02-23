@@ -14,6 +14,7 @@ import { PropertiesPanel } from './PropertiesPanel'
 import { ConnectionIndicator } from './ConnectionIndicator'
 import { AiAgentPanel } from '@/components/ui/AiAgentButton'
 import { Model3DOverlay } from './Model3DOverlay'
+import { ModelBrowser } from './ModelBrowser'
 import { SHAPE_DEFAULTS, STICKY_COLORS, getContrastTextColor } from '@/lib/shape-defaults'
 import getStroke from 'perfect-freehand'
 import type { CanvasObject, ShapeType } from '@/lib/board-sync'
@@ -60,6 +61,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   // 3D interaction state
   const [interacting3dId, setInteracting3dId] = useState<string | null>(null)
   const interacting3dIdRef = useRef<string | null>(null)
+  const [modelBrowserOpen, setModelBrowserOpen] = useState(false)
   // Keep ref in sync for cleanup on unmount
   useEffect(() => { interacting3dIdRef.current = interacting3dId }, [interacting3dId])
 
@@ -822,7 +824,6 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   // Handle 3D model camera orbit changes — sync to other users
   const handle3DCameraChange = useCallback(
     (id: string, cameraOrbit: string) => {
-      console.log(`[3D-SYNC] BoardCanvas received camera change: "${cameraOrbit}" for ${id.slice(0,8)}`)
       updateObjectHelper(id, { cameraOrbit, updated_at: new Date().toISOString() })
     },
     [updateObjectHelper],
@@ -830,7 +831,6 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
   // Explicit exit from 3D interaction — atomic: final cameraOrbit + release lock in ONE write
   const handleExitInteraction = useCallback((id: string, finalCameraOrbit: string) => {
-    console.log(`[3D-SYNC] BoardCanvas ATOMIC EXIT: orbit="${finalCameraOrbit}" for ${id.slice(0,8)}`)
     updateObjectHelper(id, {
       cameraOrbit: finalCameraOrbit,
       controlledBy: '',
@@ -1084,6 +1084,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         onZoomFit={handleZoomFit}
         onRename={handleRename}
         onCycleGrid={() => setGridMode((prev) => prev === 'none' ? 'dots' : prev === 'dots' ? 'lines' : 'none')}
+        on3DModels={() => setModelBrowserOpen((prev) => !prev)}
         presenceSlot={
           presenceEnabled ? (
             <PresenceIndicator users={others} currentUserName={userName} />
@@ -1391,6 +1392,16 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
           onCameraChange={handle3DCameraChange}
           onExitInteraction={handleExitInteraction}
         />
+
+        {/* 3D Model Browser */}
+        {syncEnabled && (
+          <ModelBrowser
+            open={modelBrowserOpen}
+            onClose={() => setModelBrowserOpen(false)}
+            onPlaceModel={addObjectHelper}
+            nextZIndex={nextZIndex}
+          />
+        )}
 
         {/* AI Agent Panel — only for authenticated users with board access */}
         {syncEnabled && boardId && (

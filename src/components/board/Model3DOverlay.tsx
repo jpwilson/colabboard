@@ -136,7 +136,6 @@ const ModelViewerItem = memo(function ModelViewerItem({
       // getCameraOrbit() returns LIVE camera state; .cameraOrbit only returns the attribute default
       const orbit = mv.getCameraOrbit().toString()
       if (orbit) {
-        console.log(`[3D-SYNC] CONTROLLER sending orbit: "${orbit}" for ${objId.slice(0,8)}`)
         onCameraChange(objId, orbit)
       }
     }, 80)
@@ -145,7 +144,6 @@ const ModelViewerItem = memo(function ModelViewerItem({
   // Attach camera-change event listener
   useEffect(() => {
     const mv = mvRef.current
-    console.log(`[3D-SYNC] Attaching camera-change listener, mv=${!!mv}`)
     if (!mv) return
 
     mv.addEventListener('camera-change', handleCameraChange)
@@ -161,7 +159,6 @@ const ModelViewerItem = memo(function ModelViewerItem({
     const finalOrbit = (mv && typeof mv.getCameraOrbit === 'function')
       ? mv.getCameraOrbit().toString()
       : cameraOrbit
-    console.log(`[3D-SYNC] EXIT clicked, finalOrbit="${finalOrbit}", prop="${cameraOrbit}"`)
     // Flush any pending debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
@@ -176,25 +173,20 @@ const ModelViewerItem = memo(function ModelViewerItem({
   const prevOrbitRef = useRef(cameraOrbit)
   useEffect(() => {
     if (isController) {
-      console.log(`[3D-SYNC] FOLLOWER effect skipped (isController), orbit prop="${cameraOrbit}"`)
       prevOrbitRef.current = cameraOrbit
       return
     }
     // Only apply when cameraOrbit actually changed — prevents snap-back on isController transition
     if (cameraOrbit === prevOrbitRef.current) {
-      console.log(`[3D-SYNC] FOLLOWER effect skipped (orbit unchanged="${cameraOrbit}")`)
       prevOrbitRef.current = cameraOrbit
       return
     }
     prevOrbitRef.current = cameraOrbit
     const mv = mvRef.current
     if (!mv) {
-      console.log(`[3D-SYNC] FOLLOWER effect skipped (no mv ref)`)
       return
     }
 
-    const currentOrbit = typeof mv.getCameraOrbit === 'function' ? mv.getCameraOrbit().toString() : 'unknown'
-    console.log(`[3D-SYNC] FOLLOWER applying orbit="${cameraOrbit}", current mv="${currentOrbit}"`)
     mv.cameraOrbit = cameraOrbit
     if (typeof mv.jumpCameraToGoal === 'function') {
       mv.jumpCameraToGoal()

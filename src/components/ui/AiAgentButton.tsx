@@ -592,41 +592,6 @@ export function AiAgentPanel({
             </div>
           </div>
 
-          {/* 3D Test Ribbon — TEMPORARY for testing */}
-          <div className="flex items-center gap-1.5 border-b border-amber-200 bg-amber-50/80 px-3 py-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">3D Test:</span>
-            {[
-              { label: '📦 Cube', url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Box/glTF-Binary/Box.glb' },
-              { label: '🪖 Helmet', url: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb' },
-              { label: '🧑‍🚀 Astronaut', url: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb' },
-              { label: '🤖 Robot', url: 'https://modelviewer.dev/shared-assets/models/RobotExpressive.glb' },
-              { label: '🦆 Duck', url: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/Duck/glTF-Binary/Duck.glb' },
-            ].map((model) => (
-              <button
-                key={model.label}
-                onClick={() => {
-                  const obj: CanvasObject = {
-                    id: crypto.randomUUID(),
-                    type: 'model3d',
-                    x: 100 + Math.random() * 400,
-                    y: 100 + Math.random() * 400,
-                    width: 250,
-                    height: 250,
-                    fill: '#f1f5f9',
-                    modelUrl: model.url,
-                    cameraOrbit: '0deg 75deg 2.5m',
-                    z_index: nextZIndex,
-                    updated_at: new Date().toISOString(),
-                  }
-                  onAddObject(obj)
-                }}
-                className="rounded-md bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-amber-100 hover:shadow active:scale-95"
-              >
-                {model.label}
-              </button>
-            ))}
-          </div>
-
           {/* Content row: messages+suggestions+input | domain strip */}
           <div className="flex flex-1 overflow-hidden">
             {/* Main column */}
