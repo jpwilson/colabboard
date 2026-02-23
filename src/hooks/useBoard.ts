@@ -77,6 +77,10 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
     channel.on('broadcast', { event: 'object-change' }, ({ payload }) => {
       const msg = payload as BroadcastPayload
       if (msg.type === 'create' || msg.type === 'update') {
+        const d = msg.object.data as Record<string, unknown>
+        if (d?.cameraOrbit !== undefined || d?.controlledBy !== undefined) {
+          console.log(`[3D-SYNC] RECEIVED broadcast: cameraOrbit="${d.cameraOrbit}", controlledBy="${d.controlledBy}", id=${msg.object.id.slice(0,8)}`)
+        }
         lwwMerge(objectsRef.current, msg.object)
         syncState()
       } else if (msg.type === 'delete') {
@@ -203,6 +207,9 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         ...updates,
         updated_at: new Date().toISOString(),
       }
+      if (updates.cameraOrbit !== undefined || updates.controlledBy !== undefined) {
+        console.log(`[3D-SYNC] useBoard.updateObject: cameraOrbit="${updated.cameraOrbit}", controlledBy="${updated.controlledBy}", id=${id.slice(0,8)}`)
+      }
       objectsRef.current.set(id, updated)
       syncState()
 
@@ -241,6 +248,10 @@ export function useBoard({ boardId, userId }: UseBoardOptions) {
         objectsRef.current.set(id, previous)
         syncState()
         return
+      }
+      if (updates.cameraOrbit !== undefined || updates.controlledBy !== undefined) {
+        const d = boardObj.data as Record<string, unknown>
+        console.log(`[3D-SYNC] useBoard BROADCAST sent: cameraOrbit="${d.cameraOrbit}", controlledBy="${d.controlledBy}"`)
       }
       broadcast({ type: 'update', object: boardObj })
     },

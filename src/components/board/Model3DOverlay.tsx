@@ -132,6 +132,7 @@ const ModelViewerItem = memo(function ModelViewerItem({
     debounceRef.current = setTimeout(() => {
       const orbit = mv.cameraOrbit
       if (orbit) {
+        console.log(`[3D-SYNC] CONTROLLER sending orbit: "${orbit}" for ${objId.slice(0,8)}`)
         onCameraChange(objId, orbit)
       }
     }, 80)
@@ -140,6 +141,7 @@ const ModelViewerItem = memo(function ModelViewerItem({
   // Attach camera-change event listener
   useEffect(() => {
     const mv = mvRef.current
+    console.log(`[3D-SYNC] Attaching camera-change listener, mv=${!!mv}, isController=${isController}`)
     if (!mv) return
 
     mv.addEventListener('camera-change', handleCameraChange)
@@ -153,6 +155,7 @@ const ModelViewerItem = memo(function ModelViewerItem({
   const handleExitClick = useCallback(() => {
     const mv = mvRef.current
     const finalOrbit = mv?.cameraOrbit || cameraOrbit
+    console.log(`[3D-SYNC] EXIT clicked, finalOrbit="${finalOrbit}", mv.cameraOrbit="${mv?.cameraOrbit}", prop="${cameraOrbit}"`)
     // Flush any pending debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
@@ -166,10 +169,17 @@ const ModelViewerItem = memo(function ModelViewerItem({
   // Only depends on cameraOrbit — NOT isController. This prevents the snap-back
   // on exit where the stale prop value would override the model-viewer's actual state.
   useEffect(() => {
-    if (isControllerRef.current) return // Controller owns the camera
+    if (isControllerRef.current) {
+      console.log(`[3D-SYNC] FOLLOWER effect skipped (isController), orbit prop="${cameraOrbit}"`)
+      return
+    }
     const mv = mvRef.current
-    if (!mv) return
+    if (!mv) {
+      console.log(`[3D-SYNC] FOLLOWER effect skipped (no mv ref)`)
+      return
+    }
 
+    console.log(`[3D-SYNC] FOLLOWER applying orbit="${cameraOrbit}", current mv="${mv.cameraOrbit}"`)
     mv.cameraOrbit = cameraOrbit
     if (typeof mv.jumpCameraToGoal === 'function') {
       mv.jumpCameraToGoal()

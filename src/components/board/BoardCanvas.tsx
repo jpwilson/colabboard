@@ -822,6 +822,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   // Handle 3D model camera orbit changes — sync to other users
   const handle3DCameraChange = useCallback(
     (id: string, cameraOrbit: string) => {
+      console.log(`[3D-SYNC] BoardCanvas received camera change: "${cameraOrbit}" for ${id.slice(0,8)}`)
       updateObjectHelper(id, { cameraOrbit, updated_at: new Date().toISOString() })
     },
     [updateObjectHelper],
@@ -829,6 +830,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
   // Explicit exit from 3D interaction — atomic: final cameraOrbit + release lock in ONE write
   const handleExitInteraction = useCallback((id: string, finalCameraOrbit: string) => {
+    console.log(`[3D-SYNC] BoardCanvas ATOMIC EXIT: orbit="${finalCameraOrbit}" for ${id.slice(0,8)}`)
     updateObjectHelper(id, {
       cameraOrbit: finalCameraOrbit,
       controlledBy: '',
