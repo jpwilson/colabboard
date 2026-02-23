@@ -182,6 +182,7 @@ npm run validate       # Full: typecheck + lint + tests
 - Conventional commits: `feat:`, `fix:`, `chore:`, `test:`, `docs:`
 - All PRs must pass CI
 - Squash merge to main
+- Do NOT add Co-Authored-By lines to git commits
 
 ---
 
