@@ -7,8 +7,15 @@ const MODEL_VIEWER_CDN =
   'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js'
 
 /** model-viewer JS runtime API (subset we use) */
+interface SphericalPosition {
+  theta: number
+  phi: number
+  radius: number
+  toString(): string
+}
 interface ModelViewerElement extends HTMLElement {
   cameraOrbit: string
+  getCameraOrbit: () => SphericalPosition
   jumpCameraToGoal: () => void
   interpolationDecay: number
 }
@@ -122,11 +129,12 @@ const ModelViewerItem = memo(function ModelViewerItem({
   const handleCameraChange = useCallback(() => {
     if (!isController) return
     const mv = mvRef.current
-    if (!mv) return
+    if (!mv || typeof mv.getCameraOrbit !== 'function') return
 
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      const orbit = mv.cameraOrbit
+      // getCameraOrbit() returns LIVE camera state; .cameraOrbit only returns the attribute default
+      const orbit = mv.getCameraOrbit().toString()
       if (orbit) {
         console.log(`[3D-SYNC] CONTROLLER sending orbit: "${orbit}" for ${objId.slice(0,8)}`)
         onCameraChange(objId, orbit)
@@ -150,8 +158,10 @@ const ModelViewerItem = memo(function ModelViewerItem({
   // ── EXIT HANDLER: Read final camera from model-viewer and pass to parent ──
   const handleExitClick = useCallback(() => {
     const mv = mvRef.current
-    const finalOrbit = mv?.cameraOrbit || cameraOrbit
-    console.log(`[3D-SYNC] EXIT clicked, finalOrbit="${finalOrbit}", mv.cameraOrbit="${mv?.cameraOrbit}", prop="${cameraOrbit}"`)
+    const finalOrbit = (mv && typeof mv.getCameraOrbit === 'function')
+      ? mv.getCameraOrbit().toString()
+      : cameraOrbit
+    console.log(`[3D-SYNC] EXIT clicked, finalOrbit="${finalOrbit}", prop="${cameraOrbit}"`)
     // Flush any pending debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
@@ -183,7 +193,8 @@ const ModelViewerItem = memo(function ModelViewerItem({
       return
     }
 
-    console.log(`[3D-SYNC] FOLLOWER applying orbit="${cameraOrbit}", current mv="${mv.cameraOrbit}"`)
+    const currentOrbit = typeof mv.getCameraOrbit === 'function' ? mv.getCameraOrbit().toString() : 'unknown'
+    console.log(`[3D-SYNC] FOLLOWER applying orbit="${cameraOrbit}", current mv="${currentOrbit}"`)
     mv.cameraOrbit = cameraOrbit
     if (typeof mv.jumpCameraToGoal === 'function') {
       mv.jumpCameraToGoal()
