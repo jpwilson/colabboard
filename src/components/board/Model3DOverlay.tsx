@@ -6,6 +6,13 @@ import type { CanvasObject } from '@/lib/board-sync'
 const MODEL_VIEWER_CDN =
   'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js'
 
+/** model-viewer JS runtime API (subset we use) */
+interface ModelViewerElement extends HTMLElement {
+  cameraOrbit: string
+  jumpCameraToGoal: () => void
+  interpolationDecay: number
+}
+
 interface Model3DOverlayProps {
   objects: CanvasObject[]
   stagePos: { x: number; y: number }
@@ -46,16 +53,14 @@ export const Model3DOverlay = memo(function Model3DOverlay({
   return (
     <>
       {model3dObjects.map((obj) => {
-        // Convert canvas coords to screen coords
         const screenX = obj.x * stageScale + stagePos.x
         const screenY = obj.y * stageScale + stagePos.y
         const screenW = obj.width * stageScale
         const screenH = obj.height * stageScale
-
         const isInteracting = interactingId === obj.id
 
         return (
-          <ModelViewerElement
+          <ModelViewerItem
             key={obj.id}
             objId={obj.id}
             modelUrl={obj.modelUrl!}
@@ -73,8 +78,7 @@ export const Model3DOverlay = memo(function Model3DOverlay({
   )
 })
 
-/** Individual model-viewer element */
-const ModelViewerElement = memo(function ModelViewerElement({
+const ModelViewerItem = memo(function ModelViewerItem({
   objId,
   modelUrl,
   cameraOrbit,
@@ -95,24 +99,31 @@ const ModelViewerElement = memo(function ModelViewerElement({
   isInteracting: boolean
   onCameraChange: (id: string, cameraOrbit: string) => void
 }) {
-  const mvRef = useRef<HTMLElement | null>(null)
+  const mvRef = useRef<ModelViewerElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Track the last orbit we sent, so we don't snap back to stale prop on exit
+  const lastSentOrbitRef = useRef<string | null>(null)
+  const wasInteractingRef = useRef(false)
 
+  // ── Send camera state while interacting ──
+  // Read from the JS runtime property (mv.cameraOrbit), NOT getAttribute
   const handleCameraChange = useCallback(() => {
     if (!isInteracting) return
     const mv = mvRef.current
     if (!mv) return
 
-    // Debounce camera changes to avoid broadcast flooding
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      const orbit = mv.getAttribute('camera-orbit')
+      // Use the JS property — this is the live camera state
+      const orbit = mv.cameraOrbit
       if (orbit) {
+        lastSentOrbitRef.current = orbit
         onCameraChange(objId, orbit)
       }
-    }, 200)
+    }, 100) // Faster debounce for smoother sync
   }, [isInteracting, objId, onCameraChange])
 
+  // Attach camera-change event listener
   useEffect(() => {
     const mv = mvRef.current
     if (!mv) return
@@ -124,30 +135,39 @@ const ModelViewerElement = memo(function ModelViewerElement({
     }
   }, [handleCameraChange])
 
-  // Sync camera orbit from remote updates — imperatively set the attribute
-  // because React doesn't reliably push attribute changes to web components.
-  // Also disable auto-rotate temporarily so it doesn't fight the new position.
+  // ── Capture final position when exiting interaction mode ──
+  useEffect(() => {
+    if (wasInteractingRef.current && !isInteracting) {
+      // Just stopped interacting — send final camera position immediately
+      const mv = mvRef.current
+      if (mv) {
+        const finalOrbit = mv.cameraOrbit
+        if (finalOrbit) {
+          lastSentOrbitRef.current = finalOrbit
+          onCameraChange(objId, finalOrbit)
+        }
+      }
+    }
+    wasInteractingRef.current = isInteracting
+  }, [isInteracting, objId, onCameraChange])
+
+  // ── Receive camera state from remote users ──
+  // Only apply when NOT interacting locally, and skip if this is our own
+  // update echoing back from the DB
   useEffect(() => {
     const mv = mvRef.current
-    if (!mv || isInteracting) return // Don't override while local user is orbiting
+    if (!mv || isInteracting) return
 
-    // Disable auto-rotate before setting camera to prevent it fighting the position
-    mv.removeAttribute('auto-rotate')
+    // Don't snap back to our own last-sent value (avoids the echo snap-back)
+    // But DO apply genuinely new values from remote users
+    const currentMvOrbit = mv.cameraOrbit
+    if (cameraOrbit === currentMvOrbit) return // Already showing this
 
-    // Use model-viewer's jumpCameraToGoal for instant snap (no animation)
-    mv.setAttribute('camera-orbit', cameraOrbit)
-    const mvAny = mv as unknown as { jumpCameraToGoal?: () => void }
-    if (typeof mvAny.jumpCameraToGoal === 'function') {
-      mvAny.jumpCameraToGoal()
+    // Apply the remote camera position instantly
+    mv.cameraOrbit = cameraOrbit
+    if (typeof mv.jumpCameraToGoal === 'function') {
+      mv.jumpCameraToGoal()
     }
-
-    // Re-enable auto-rotate after a short delay so it idles from the new position
-    const timer = setTimeout(() => {
-      if (!isInteracting) {
-        mv.setAttribute('auto-rotate', '')
-      }
-    }, 500)
-    return () => clearTimeout(timer)
   }, [cameraOrbit, isInteracting])
 
   return (
@@ -171,7 +191,6 @@ const ModelViewerElement = memo(function ModelViewerElement({
         src={modelUrl}
         camera-orbit={cameraOrbit}
         camera-controls={isInteracting || undefined}
-        auto-rotate={!isInteracting || undefined}
         shadow-intensity="1"
         interaction-prompt="none"
         style={{ width: '100%', height: '100%' }}
