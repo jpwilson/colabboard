@@ -59,6 +59,9 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
 
   // 3D interaction state
   const [interacting3dId, setInteracting3dId] = useState<string | null>(null)
+  const interacting3dIdRef = useRef<string | null>(null)
+  // Keep ref in sync for cleanup on unmount
+  useEffect(() => { interacting3dIdRef.current = interacting3dId }, [interacting3dId])
 
   // Freedraw state
   const [isDrawing, setIsDrawing] = useState(false)
@@ -296,7 +299,11 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         const isShift = 'shiftKey' in e.evt && e.evt.shiftKey
         if (!isShift) {
           setSelectedIds([])
-          setInteracting3dId(null)
+          // Clear 3D controller lock when clicking away
+          if (interacting3dId) {
+            updateObjectHelper(interacting3dId, { controlledBy: '', updated_at: new Date().toISOString() })
+            setInteracting3dId(null)
+          }
         }
         return
       }
@@ -346,7 +353,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       }
       setTool('select')
     },
-    [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper, pushAction],
+    [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper, pushAction, interacting3dId, updateObjectHelper],
   )
 
   // Freedraw + marquee handlers
@@ -634,9 +641,25 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       const obj = objects.find((o) => o.id === id)
       if (!obj) return
 
-      // Toggle 3D interaction mode
+      // Toggle 3D interaction mode with ownership lock
       if (obj.type === 'model3d') {
-        setInteracting3dId((prev) => (prev === id ? null : id))
+        // Block entry if another user controls this model
+        if (obj.controlledBy && obj.controlledBy !== userId) return
+        setInteracting3dId((prev) => {
+          if (prev === id) {
+            // Exiting: clear lock
+            updateObjectHelper(id, { controlledBy: '', updated_at: new Date().toISOString() })
+            return null
+          } else {
+            // Entering: if we were controlling another model, release it first
+            if (prev) {
+              updateObjectHelper(prev, { controlledBy: '', updated_at: new Date().toISOString() })
+            }
+            // Claim this model
+            updateObjectHelper(id, { controlledBy: userId || '', updated_at: new Date().toISOString() })
+            return id
+          }
+        })
         return
       }
 
@@ -699,7 +722,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         if (e.key === 'Escape') textarea.blur()
       })
     },
-    [objects, stageScale, updateObjectHelper, pushAction],
+    [objects, stageScale, updateObjectHelper, pushAction, userId],
   )
 
   // Attach/detach Transformer to selected nodes
@@ -789,6 +812,26 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     },
     [updateObjectHelper],
   )
+
+  // Explicit exit from 3D interaction — called by Model3DOverlay's "Exit 3D" button
+  const handleExitInteraction = useCallback(() => {
+    if (interacting3dId) {
+      // Read final camera state is handled by Model3DOverlay's wasControllerRef effect
+      updateObjectHelper(interacting3dId, { controlledBy: '', updated_at: new Date().toISOString() })
+      setInteracting3dId(null)
+    }
+  }, [interacting3dId, updateObjectHelper])
+
+  // Release 3D lock on unmount (e.g. user navigates away or closes tab)
+  useEffect(() => {
+    return () => {
+      if (interacting3dIdRef.current) {
+        // Fire-and-forget: clear controlledBy so other users aren't permanently locked out
+        updateObjectHelper(interacting3dIdRef.current, { controlledBy: '', updated_at: new Date().toISOString() })
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleZoomFit = useCallback(() => {
     if (objects.length === 0) {
@@ -1324,7 +1367,9 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
           stagePos={stagePos}
           stageScale={stageScale}
           interactingId={interacting3dId}
+          currentUserId={userId}
           onCameraChange={handle3DCameraChange}
+          onExitInteraction={handleExitInteraction}
         />
 
         {/* AI Agent Panel — only for authenticated users with board access */}

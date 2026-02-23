@@ -55,6 +55,7 @@ export interface CanvasObject {
   imageUrl?: string
   modelUrl?: string
   cameraOrbit?: string
+  controlledBy?: string
   z_index: number
   updated_at: string
 }
@@ -76,6 +77,7 @@ export function canvasToData(obj: CanvasObject): Record<string, unknown> {
   if (obj.imageUrl !== undefined) data.imageUrl = obj.imageUrl
   if (obj.modelUrl !== undefined) data.modelUrl = obj.modelUrl
   if (obj.cameraOrbit !== undefined) data.cameraOrbit = obj.cameraOrbit
+  if (obj.controlledBy !== undefined) data.controlledBy = obj.controlledBy
   return data
 }
 
@@ -106,6 +108,7 @@ export function boardObjectToCanvas(obj: BoardObject): CanvasObject {
   if (data.imageUrl !== undefined) result.imageUrl = data.imageUrl as string
   if (data.modelUrl !== undefined) result.modelUrl = data.modelUrl as string
   if (data.cameraOrbit !== undefined) result.cameraOrbit = data.cameraOrbit as string
+  if (data.controlledBy !== undefined) result.controlledBy = data.controlledBy as string
   return result
 }
 
