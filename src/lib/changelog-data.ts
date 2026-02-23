@@ -9,6 +9,38 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   // Newest first — only entries merged to main
   {
+    date: '2026-02-22',
+    title: '3D Model Browser — Sketchfab Search & File Upload',
+    description:
+      'Added 3D Model Browser panel with Sketchfab integration (search 500K+ downloadable models, import directly to board). User file upload for custom .glb/.gltf files with 10-per-user limit. Uploads tab shows all models with place/delete actions. 3D button in toolbar to toggle browser.',
+    tag: 'feature',
+    commit: 'dfb5fd0',
+  },
+  {
+    date: '2026-02-22',
+    title: 'Real-Time 3D Camera Sync Between Users',
+    description:
+      'Collaborative 3D model viewing — when one user rotates a model, all other users see the rotation in real-time. Per-object controller lock prevents conflicts. "In use" indicator shows when another user is manipulating a model. Atomic exit ensures camera state persists reliably.',
+    tag: 'feature',
+    commit: '9b96bd3',
+  },
+  {
+    date: '2026-02-22',
+    title: 'AI Agent Improvements — Batch Tools & Step Budget',
+    description:
+      'Added batch_create and batch_update tools for faster multi-object operations. Simplified agent with concise default responses. Reduced step budget from 10 to 5 for snappier interactions. Removed dead Draw tab code.',
+    tag: 'feature',
+    commit: '8c036d2',
+  },
+  {
+    date: '2026-02-21',
+    title: 'SVG Generation, 3D Model Viewing & AI Cost Tracking',
+    description:
+      'AI agent can generate SVG illustrations and place 3D models from URL. Added per-user AI cost column in admin analytics. Smart auto-placement avoids overlapping existing objects. Fixed AI cost dashboard userId lookup.',
+    tag: 'feature',
+    commit: '784fe64',
+  },
+  {
     date: '2026-02-21',
     title: 'Bold Color Palette & Vertical Domain Strip',
     description:
