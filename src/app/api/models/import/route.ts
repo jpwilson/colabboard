@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { inflateRawSync } from 'zlib'
 
 const SKETCHFAB_TOKEN = process.env.SKETCHFAB_API_TOKEN
 const MAX_UPLOADS_PER_USER = 10
@@ -111,13 +112,13 @@ export async function POST(request: Request) {
 
 /**
  * Minimal ZIP parser — extracts the first .glb or scene.gltf file from a ZIP archive.
+ * Supports both stored (compMethod=0) and deflate (compMethod=8) entries.
  * ZIP format: each file has a local file header starting with PK\x03\x04
  */
 function extractFromZip(zip: Uint8Array): { data: Uint8Array; ext: string } | null {
   const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength)
   let offset = 0
 
-  // Priority: find .glb first, fallback to scene.bin (often the biggest useful file)
   let glbFile: { data: Uint8Array; ext: string } | null = null
   let gltfFile: { data: Uint8Array; ext: string } | null = null
 
@@ -127,24 +128,35 @@ function extractFromZip(zip: Uint8Array): { data: Uint8Array; ext: string } | nu
 
     const compMethod = view.getUint16(offset + 8, true)
     const compSize = view.getUint32(offset + 18, true)
-    const uncompSize = view.getUint32(offset + 22, true)
     const nameLen = view.getUint16(offset + 26, true)
     const extraLen = view.getUint16(offset + 28, true)
     const fileName = new TextDecoder().decode(zip.slice(offset + 30, offset + 30 + nameLen))
     const dataStart = offset + 30 + nameLen + extraLen
-    const fileSize = compMethod === 0 ? uncompSize : compSize
 
-    if (compMethod === 0) {
-      // Stored (not compressed)
-      const fileData = zip.slice(dataStart, dataStart + fileSize)
+    if (fileName.endsWith('.glb') || (fileName.endsWith('.gltf') && !gltfFile)) {
+      const compressedData = zip.slice(dataStart, dataStart + compSize)
+      let fileData: Uint8Array
+
+      if (compMethod === 0) {
+        // Stored (not compressed)
+        fileData = compressedData
+      } else if (compMethod === 8) {
+        // Deflate — use Node.js zlib
+        fileData = new Uint8Array(inflateRawSync(Buffer.from(compressedData)))
+      } else {
+        // Unsupported compression method — skip
+        offset = dataStart + compSize
+        continue
+      }
+
       if (fileName.endsWith('.glb')) {
         glbFile = { data: fileData, ext: 'glb' }
-      } else if (fileName.endsWith('.gltf') && !gltfFile) {
+      } else {
         gltfFile = { data: fileData, ext: 'gltf' }
       }
     }
 
-    offset = dataStart + fileSize
+    offset = dataStart + compSize
   }
 
   return glbFile || gltfFile
