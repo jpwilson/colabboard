@@ -22,7 +22,8 @@ interface Model3DOverlayProps {
   /** Current user's ID — used for ownership */
   currentUserId?: string
   onCameraChange: (id: string, cameraOrbit: string) => void
-  onExitInteraction: () => void
+  /** Atomic exit: sends final cameraOrbit + clears controlledBy in one write */
+  onExitInteraction: (id: string, finalCameraOrbit: string) => void
 }
 
 export const Model3DOverlay = memo(function Model3DOverlay({
@@ -113,10 +114,13 @@ const ModelViewerItem = memo(function ModelViewerItem({
   isController: boolean
   isLockedByOther: boolean
   onCameraChange: (id: string, cameraOrbit: string) => void
-  onExitInteraction: () => void
+  onExitInteraction: (id: string, finalCameraOrbit: string) => void
 }) {
   const mvRef = useRef<ModelViewerElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Track isController via ref so the follower effect doesn't re-trigger on transition
+  const isControllerRef = useRef(isController)
+  useEffect(() => { isControllerRef.current = isController }, [isController])
 
   // ── CONTROLLER: Send camera state while controlling ──
   const handleCameraChange = useCallback(() => {
@@ -145,24 +149,24 @@ const ModelViewerItem = memo(function ModelViewerItem({
     }
   }, [handleCameraChange])
 
-  // ── CONTROLLER: Send final camera position on exit ──
-  const wasControllerRef = useRef(false)
-  useEffect(() => {
-    if (wasControllerRef.current && !isController) {
-      const mv = mvRef.current
-      if (mv) {
-        const finalOrbit = mv.cameraOrbit
-        if (finalOrbit) {
-          onCameraChange(objId, finalOrbit)
-        }
-      }
+  // ── EXIT HANDLER: Read final camera from model-viewer and pass to parent ──
+  const handleExitClick = useCallback(() => {
+    const mv = mvRef.current
+    const finalOrbit = mv?.cameraOrbit || cameraOrbit
+    // Flush any pending debounce
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
     }
-    wasControllerRef.current = isController
-  }, [isController, objId, onCameraChange])
+    // Atomic exit: parent will write cameraOrbit + controlledBy in one update
+    onExitInteraction(objId, finalOrbit)
+  }, [objId, cameraOrbit, onExitInteraction])
 
-  // ── FOLLOWER: Always apply incoming camera updates when not controlling ──
+  // ── FOLLOWER: Apply incoming camera updates ──
+  // Only depends on cameraOrbit — NOT isController. This prevents the snap-back
+  // on exit where the stale prop value would override the model-viewer's actual state.
   useEffect(() => {
-    if (isController) return // Controller owns the camera — don't override
+    if (isControllerRef.current) return // Controller owns the camera
     const mv = mvRef.current
     if (!mv) return
 
@@ -170,7 +174,7 @@ const ModelViewerItem = memo(function ModelViewerItem({
     if (typeof mv.jumpCameraToGoal === 'function') {
       mv.jumpCameraToGoal()
     }
-  }, [cameraOrbit, isController])
+  }, [cameraOrbit])
 
   return (
     <div
@@ -207,7 +211,7 @@ const ModelViewerItem = memo(function ModelViewerItem({
         <button
           onClick={(e) => {
             e.stopPropagation()
-            onExitInteraction()
+            handleExitClick()
           }}
           style={{
             position: 'absolute',

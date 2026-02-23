@@ -299,9 +299,14 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         const isShift = 'shiftKey' in e.evt && e.evt.shiftKey
         if (!isShift) {
           setSelectedIds([])
-          // Clear 3D controller lock when clicking away
+          // Clear 3D controller lock when clicking away — atomic write
           if (interacting3dId) {
-            updateObjectHelper(interacting3dId, { controlledBy: '', updated_at: new Date().toISOString() })
+            const obj3d = objects.find((o) => o.id === interacting3dId)
+            updateObjectHelper(interacting3dId, {
+              cameraOrbit: obj3d?.cameraOrbit || '0deg 75deg 2.5m',
+              controlledBy: '',
+              updated_at: new Date().toISOString(),
+            })
             setInteracting3dId(null)
           }
         }
@@ -353,7 +358,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       }
       setTool('select')
     },
-    [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper, pushAction, interacting3dId, updateObjectHelper],
+    [tool, shapeTool, stickyColor, getCanvasPos, nextZIndex, addObjectHelper, pushAction, interacting3dId, updateObjectHelper, objects],
   )
 
   // Freedraw + marquee handlers
@@ -647,13 +652,22 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         if (obj.controlledBy && obj.controlledBy !== userId) return
         setInteracting3dId((prev) => {
           if (prev === id) {
-            // Exiting: clear lock
-            updateObjectHelper(id, { controlledBy: '', updated_at: new Date().toISOString() })
+            // Exiting: atomic write — cameraOrbit + release lock together
+            updateObjectHelper(id, {
+              cameraOrbit: obj.cameraOrbit || '0deg 75deg 2.5m',
+              controlledBy: '',
+              updated_at: new Date().toISOString(),
+            })
             return null
           } else {
             // Entering: if we were controlling another model, release it first
             if (prev) {
-              updateObjectHelper(prev, { controlledBy: '', updated_at: new Date().toISOString() })
+              const prevObj = objects.find((o) => o.id === prev)
+              updateObjectHelper(prev, {
+                cameraOrbit: prevObj?.cameraOrbit || '0deg 75deg 2.5m',
+                controlledBy: '',
+                updated_at: new Date().toISOString(),
+              })
             }
             // Claim this model
             updateObjectHelper(id, { controlledBy: userId || '', updated_at: new Date().toISOString() })
@@ -813,21 +827,25 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
     [updateObjectHelper],
   )
 
-  // Explicit exit from 3D interaction — called by Model3DOverlay's "Exit 3D" button
-  const handleExitInteraction = useCallback(() => {
-    if (interacting3dId) {
-      // Read final camera state is handled by Model3DOverlay's wasControllerRef effect
-      updateObjectHelper(interacting3dId, { controlledBy: '', updated_at: new Date().toISOString() })
-      setInteracting3dId(null)
-    }
-  }, [interacting3dId, updateObjectHelper])
+  // Explicit exit from 3D interaction — atomic: final cameraOrbit + release lock in ONE write
+  const handleExitInteraction = useCallback((id: string, finalCameraOrbit: string) => {
+    updateObjectHelper(id, {
+      cameraOrbit: finalCameraOrbit,
+      controlledBy: '',
+      updated_at: new Date().toISOString(),
+    })
+    setInteracting3dId(null)
+  }, [updateObjectHelper])
 
   // Release 3D lock on unmount (e.g. user navigates away or closes tab)
   useEffect(() => {
     return () => {
       if (interacting3dIdRef.current) {
-        // Fire-and-forget: clear controlledBy so other users aren't permanently locked out
-        updateObjectHelper(interacting3dIdRef.current, { controlledBy: '', updated_at: new Date().toISOString() })
+        // Fire-and-forget: release lock so other users aren't permanently locked out
+        updateObjectHelper(interacting3dIdRef.current, {
+          controlledBy: '',
+          updated_at: new Date().toISOString(),
+        })
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
