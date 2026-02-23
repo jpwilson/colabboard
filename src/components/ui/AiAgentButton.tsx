@@ -36,13 +36,13 @@ interface UndoGroup {
 }
 
 interface ToolActionResult {
-  action: 'create' | 'update' | 'delete' | 'read' | 'batch_update'
+  action: 'create' | 'update' | 'delete' | 'read' | 'batch_update' | 'batch_create'
   object?: Record<string, unknown>
   titleLabel?: Record<string, unknown> // createFrame returns a title label too
   id?: string
   updates?: Record<string, unknown>
   batchUpdates?: Array<{ id: string; updates: Record<string, unknown> }>
-  objects?: unknown[]
+  objects?: Array<Record<string, unknown>>
   count?: number
   error?: string
 }
@@ -61,7 +61,14 @@ export function AiAgentPanel({
   const [extrasOpen, setExtrasOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [verbose, setVerbose] = useState(true)
+  const [verbose, setVerbose] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      const stored = localStorage.getItem('orim-chat-verbose')
+      if (stored === 'true') return true
+    } catch { /* ignore */ }
+    return false
+  })
   const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg'>(() => {
     if (typeof window === 'undefined') return 'md'
     try {
@@ -256,6 +263,23 @@ export function AiAgentPanel({
               batchEntries.push({ id: u.id, previous: previousValues, applied })
             }
             entries.push({ type: 'batch_update', batchUpdateEntries: batchEntries })
+          }
+          break
+        }
+        case 'batch_create': {
+          if (result.objects) {
+            const createdObjects: CanvasObject[] = []
+            for (const rawObj of result.objects) {
+              const obj = {
+                ...rawObj,
+                z_index: nextZRef.current++,
+              } as CanvasObject
+              onAddObject(obj)
+              createdObjects.push(obj)
+            }
+            if (createdObjects.length > 0) {
+              entries.push({ type: 'create', createdObjects })
+            }
           }
           break
         }
@@ -504,7 +528,11 @@ export function AiAgentPanel({
             <div className="group relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
               <div
                 className="relative flex h-6 w-[110px] cursor-pointer items-center rounded-full bg-slate-200/70 text-xs font-semibold"
-                onClick={() => setVerbose((v) => !v)}
+                onClick={() => setVerbose((v) => {
+                  const next = !v
+                  try { localStorage.setItem('orim-chat-verbose', String(next)) } catch { /* ignore */ }
+                  return next
+                })}
               >
                 <div
                   className={`absolute top-0.5 h-5 w-[53px] rounded-full transition-all duration-200 ${
@@ -641,6 +669,7 @@ export function AiAgentPanel({
               selected={selectedDomain}
               onSelect={handleDomainChange}
               panelWidth={panelSize.width}
+              textSize={textSize}
             />
           </div>
 
@@ -663,7 +692,7 @@ export function AiAgentPanel({
               className="flex w-full items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-widest text-accent-dark transition hover:bg-accent/10"
             >
               <svg
-                className={`h-3.5 w-3.5 transition-transform ${extrasOpen ? 'rotate-180' : ''}`}
+                className={`h-3.5 w-3.5 transition-transform ${extrasOpen ? '' : 'rotate-180'}`}
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
@@ -778,22 +807,31 @@ function DomainStrip({
   selected,
   onSelect,
   panelWidth,
+  textSize,
 }: {
   selected: string
   onSelect: (id: string) => void
   panelWidth: number
+  textSize: 'sm' | 'md' | 'lg'
 }) {
   const domains = getAllDomains()
-  const showLabels = panelWidth >= 420
+  const showLabels = panelWidth >= 380
+
+  // Scale column width and label size with text size
+  const colWidth = showLabels
+    ? textSize === 'lg' ? 'w-20 px-1' : textSize === 'sm' ? 'w-14 px-1' : 'w-16 px-1'
+    : 'w-10 px-1'
+  const labelSize = textSize === 'lg' ? 'text-[10px]' : textSize === 'sm' ? 'text-[8px]' : 'text-[9px]'
+  const iconSize = textSize === 'lg' ? 'text-lg' : 'text-base'
 
   return (
-    <div className="flex flex-col items-center gap-1 border-l border-slate-200 bg-slate-50/50 px-1.5 py-3">
+    <div className={`flex flex-col items-center gap-0.5 border-l border-slate-200 bg-slate-50/50 py-3 ${colWidth}`}>
       {domains.map((d) => (
         <button
           key={d.id}
           onClick={() => onSelect(d.id)}
-          className={`group relative flex items-center justify-center rounded-lg transition-all ${
-            showLabels ? 'w-full gap-1.5 px-2 py-1.5' : 'h-9 w-9 p-0'
+          className={`group relative flex flex-col items-center justify-center rounded-lg transition-all ${
+            showLabels ? 'w-full gap-0.5 px-0.5 py-1.5' : 'h-9 w-9 p-0'
           } ${
             selected === d.id
               ? 'bg-primary/15 text-primary-dark shadow-sm ring-1 ring-primary/30'
@@ -801,10 +839,10 @@ function DomainStrip({
           }`}
           title={d.name}
         >
-          <span className="text-base leading-none">{d.icon}</span>
+          <span className={`${iconSize} leading-none`}>{d.icon}</span>
           {showLabels && (
-            <span className="truncate text-[10px] font-semibold leading-tight">
-              {d.name.length > 8 ? d.name.slice(0, 7) + '\u2026' : d.name}
+            <span className={`text-center ${labelSize} font-semibold leading-tight`}>
+              {d.name}
             </span>
           )}
           {/* Tooltip on hover (icon-only mode) */}
@@ -819,6 +857,14 @@ function DomainStrip({
   )
 }
 
+const DRAWING_ICON = (
+  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" />
+  </svg>
+)
+
+type SuggestionTab = 'Create' | 'Edit' | 'Layout' | 'Draw'
+
 function SuggestionAccordion({
   onSelect,
   disabled,
@@ -831,41 +877,31 @@ function SuggestionAccordion({
   selectedDomain: string
 }) {
   const domainPack = getDomainPack(selectedDomain)
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    () => new Set(['Create', 'Edit', 'Layout']),
-  )
+  const [activeTab, setActiveTab] = useState<SuggestionTab>('Create')
   const [suggestionsVisible, setSuggestionsVisible] = useState(true)
 
-  const categories = useMemo(() => {
+  const tabs = useMemo(() => {
     if (!domainPack) return []
-    return [
+    const result: Array<{ key: SuggestionTab; label: string; icon: React.ReactNode; commands: Array<{ label: string; prompt: string }> }> = [
       {
+        key: 'Create',
         label: 'Create',
-        commands: domainPack.templates.map((t) => ({
-          label: t.name,
-          prompt: t.prompt,
-        })),
+        icon: CATEGORY_ICONS.Create,
+        commands: domainPack.templates.map((t) => ({ label: t.name, prompt: t.prompt })),
       },
-      { label: 'Edit', commands: domainPack.editPrompts },
-      { label: 'Layout', commands: domainPack.layoutPrompts },
+      { key: 'Edit', label: 'Edit', icon: CATEGORY_ICONS.Edit, commands: domainPack.editPrompts },
+      { key: 'Layout', label: 'Layout', icon: CATEGORY_ICONS.Layout, commands: domainPack.layoutPrompts },
     ]
+    if (domainPack.drawingPrompts.length > 0) {
+      result.push({ key: 'Draw', label: 'Draw', icon: DRAWING_ICON, commands: domainPack.drawingPrompts })
+    }
+    return result
   }, [domainPack])
 
-  const toggleCategory = useCallback((label: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev)
-      if (next.has(label)) next.delete(label)
-      else next.add(label)
-      return next
-    })
-  }, [])
+  const activeCommands = tabs.find((t) => t.key === activeTab)?.commands || []
 
   const toggleAll = useCallback(() => {
-    setSuggestionsVisible((prev) => {
-      if (prev) return false
-      setExpandedCategories(new Set(['Create', 'Edit', 'Layout']))
-      return true
-    })
+    setSuggestionsVisible((prev) => !prev)
   }, [])
 
   const labelClass = pillTextClass === 'text-sm' ? 'text-xs' : pillTextClass === 'text-xs' ? 'text-[10px]' : 'text-[9px]'
@@ -887,42 +923,38 @@ function SuggestionAccordion({
       </button>
 
       {suggestionsVisible && (
-        <div className="max-h-48 overflow-y-auto px-3 pb-2" style={{ scrollbarWidth: 'thin' }}>
-          {categories.map((cat) => (
-            <div key={cat.label} className="mb-1.5">
-              {/* Category header */}
+        <div className="px-3 pb-2">
+          {/* Tab bar */}
+          <div className="mb-1.5 flex gap-0.5 rounded-lg bg-slate-100/80 p-0.5">
+            {tabs.map((tab) => (
               <button
-                onClick={() => toggleCategory(cat.label)}
-                className={`flex w-full items-center gap-1 py-1 ${pillTextClass} font-semibold text-slate-500 transition hover:text-slate-700`}
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 ${pillTextClass} font-semibold transition ${
+                  activeTab === tab.key
+                    ? 'bg-white text-slate-700 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
               >
-                <svg
-                  className={`h-2.5 w-2.5 transition-transform ${expandedCategories.has(cat.label) ? 'rotate-0' : '-rotate-90'}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-                {CATEGORY_ICONS[cat.label]}
-                <span className="tracking-wide">{cat.label}</span>
-                <span className="ml-auto text-slate-300">{cat.commands.length}</span>
+                {tab.icon}
+                <span>{tab.label}</span>
               </button>
+            ))}
+          </div>
 
-              {/* Command pills */}
-              {expandedCategories.has(cat.label) && (
-                <div className="flex flex-wrap gap-1 pb-1 pl-4">
-                  {cat.commands.map((cmd) => (
-                    <button
-                      key={cmd.label}
-                      onClick={() => { if (!disabled) onSelect(cmd.prompt) }}
-                      disabled={disabled}
-                      className={`rounded-full bg-slate-50 px-2 py-0.5 ${pillTextClass} font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50`}
-                    >
-                      {cmd.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+          {/* Active tab pills */}
+          <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+            {activeCommands.map((cmd) => (
+              <button
+                key={cmd.label}
+                onClick={() => { if (!disabled) onSelect(cmd.prompt) }}
+                disabled={disabled}
+                className={`rounded-full ${activeTab === 'Draw' ? 'border border-slate-200 bg-white' : 'bg-slate-50'} px-2 py-0.5 ${pillTextClass} font-medium text-slate-600 shadow-sm transition-all duration-150 hover:bg-primary/5 hover:text-primary hover:shadow active:scale-95 disabled:opacity-50`}
+              >
+                {cmd.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -944,22 +976,54 @@ function MessageBubble({ message, msgTextClass, pillTextClass }: { message: UIMe
 
   // Assistant message
   const textParts: string[] = []
-  let toolCount = 0
+  let objectsCreated = 0
+  let objectsUpdated = 0
+  let objectsDeleted = 0
 
   for (const part of message.parts) {
     if (part.type === 'text' && part.text.trim()) {
       textParts.push(part.text)
     } else {
-      // Count tool parts (type is 'tool-${name}' or 'dynamic-tool')
-      const pType = (part as Record<string, unknown>).type
+      const p = part as Record<string, unknown>
+      const pType = p.type
       if (
         typeof pType === 'string' &&
-        (pType.startsWith('tool-') || pType === 'dynamic-tool')
+        (pType.startsWith('tool-') || pType === 'dynamic-tool') &&
+        p.state === 'output-available' &&
+        p.output !== undefined
       ) {
-        toolCount++
+        const result = p.output as ToolActionResult
+        if (result?.action) {
+          switch (result.action) {
+            case 'create':
+              if (result.object) objectsCreated += 1
+              if (result.titleLabel) objectsCreated += 1
+              break
+            case 'batch_create':
+              objectsCreated += result.objects?.length ?? 0
+              break
+            case 'update':
+              objectsUpdated += 1
+              break
+            case 'batch_update':
+              objectsUpdated += result.batchUpdates?.length ?? 0
+              break
+            case 'delete':
+              objectsDeleted += 1
+              break
+          }
+        }
       }
     }
   }
+
+  const summaryParts: string[] = []
+  if (objectsCreated > 0) summaryParts.push(`Created ${objectsCreated}`)
+  if (objectsUpdated > 0) summaryParts.push(`updated ${objectsUpdated}`)
+  if (objectsDeleted > 0) summaryParts.push(`deleted ${objectsDeleted}`)
+  const summaryText = summaryParts.length > 0
+    ? summaryParts.join(', ') + ` object${objectsCreated + objectsUpdated + objectsDeleted > 1 ? 's' : ''}`
+    : ''
 
   return (
     <div className="flex justify-start">
@@ -972,9 +1036,9 @@ function MessageBubble({ message, msgTextClass, pillTextClass }: { message: UIMe
             {text}
           </div>
         ))}
-        {toolCount > 0 && (
+        {summaryText && (
           <div className={`${pillTextClass} text-slate-400`}>
-            Executed {toolCount} action{toolCount > 1 ? 's' : ''}
+            {summaryText}
           </div>
         )}
       </div>

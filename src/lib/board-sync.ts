@@ -16,6 +16,8 @@ export type ShapeType =
   | 'freedraw'
   | 'connector'
   | 'text'
+  | 'image'
+  | 'model3d'
 
 export interface BoardObject {
   id: string
@@ -50,6 +52,9 @@ export interface CanvasObject {
   fromId?: string
   toId?: string
   connectorStyle?: 'none' | 'arrow-end' | 'arrow-start' | 'arrow-both'
+  imageUrl?: string
+  modelUrl?: string
+  cameraOrbit?: string
   z_index: number
   updated_at: string
 }
@@ -68,6 +73,9 @@ export function canvasToData(obj: CanvasObject): Record<string, unknown> {
   if (obj.fromId !== undefined) data.fromId = obj.fromId
   if (obj.toId !== undefined) data.toId = obj.toId
   if (obj.connectorStyle !== undefined) data.connectorStyle = obj.connectorStyle
+  if (obj.imageUrl !== undefined) data.imageUrl = obj.imageUrl
+  if (obj.modelUrl !== undefined) data.modelUrl = obj.modelUrl
+  if (obj.cameraOrbit !== undefined) data.cameraOrbit = obj.cameraOrbit
   return data
 }
 
@@ -95,6 +103,9 @@ export function boardObjectToCanvas(obj: BoardObject): CanvasObject {
   if (data.fromId !== undefined) result.fromId = data.fromId as string
   if (data.toId !== undefined) result.toId = data.toId as string
   if (data.connectorStyle !== undefined) result.connectorStyle = data.connectorStyle as 'none' | 'arrow-end' | 'arrow-start' | 'arrow-both'
+  if (data.imageUrl !== undefined) result.imageUrl = data.imageUrl as string
+  if (data.modelUrl !== undefined) result.modelUrl = data.modelUrl as string
+  if (data.cameraOrbit !== undefined) result.cameraOrbit = data.cameraOrbit as string
   return result
 }
 

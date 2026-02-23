@@ -16,6 +16,7 @@ export interface DomainPack {
   templates: TemplateDefinition[]
   editPrompts: Array<{ label: string; prompt: string }>
   layoutPrompts: Array<{ label: string; prompt: string }>
+  drawingPrompts: Array<{ label: string; prompt: string }>
 }
 
 // ── General Pack (existing 8 templates) ──
@@ -134,6 +135,7 @@ const generalPack: DomainPack = {
     { label: 'Compact', prompt: 'Move all objects closer together to reduce whitespace' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [],
 }
 
 // ── Business & Strategy Pack ──
@@ -256,6 +258,7 @@ const businessPack: DomainPack = {
     { label: 'Add headings', prompt: 'Add a large title heading above the template' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [],
 }
 
 // ── Product & UX Pack ──
@@ -353,6 +356,7 @@ const productPack: DomainPack = {
     { label: 'Add headings', prompt: 'Add a large title heading above the template' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [],
 }
 
 // ── Engineering Pack ──
@@ -458,6 +462,7 @@ const engineeringPack: DomainPack = {
     { label: 'Add headings', prompt: 'Add a large title heading above the diagram' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [],
 }
 
 // ── Education Pack ──
@@ -549,6 +554,7 @@ const educationPack: DomainPack = {
     { label: 'Add headings', prompt: 'Add a large title heading above the template' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [],
 }
 
 // ── Science Pack ──
@@ -630,6 +636,7 @@ const sciencePack: DomainPack = {
     { label: 'Add headings', prompt: 'Add a large title heading above the template' },
     { label: 'Summarize', prompt: 'Describe what is currently on the board' },
   ],
+  drawingPrompts: [],
 }
 
 // ── Registry ──

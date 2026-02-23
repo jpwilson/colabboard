@@ -29,6 +29,8 @@ const TYPE_LABELS: Record<string, string> = {
   freedraw: 'drawing',
   connector: 'connector',
   text: 'text',
+  image: 'image',
+  model3d: '3D model',
 }
 
 function getEditLabel(obj: CanvasObject): string {

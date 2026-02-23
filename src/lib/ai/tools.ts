@@ -3,6 +3,8 @@ import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SHAPE_DEFAULTS, STICKY_COLORS } from '@/lib/shape-defaults'
 import type { ShapeType } from '@/lib/board-sync'
+import { generateSvg } from './generation/generate-svg'
+import { generateImage } from './generation/generate-image'
 
 const SHAPE_TYPES = [
   'rectangle',
@@ -27,6 +29,105 @@ const SHAPE_TYPES = [
  * Exception: getBoardState reads from Supabase server-side.
  */
 export function aiTools(boardId: string, supabase: SupabaseClient) {
+  // Track positions allocated during this AI turn to avoid overlap between consecutive creates
+  const allocated: Array<{ x: number; y: number; width: number; height: number }> = []
+
+  // Lazy cache of board object positions — fetched once per AI turn, reused across all tool calls
+  let boardObjectsCache: Array<{ x: number; y: number; width: number; height: number }> | null = null
+
+  async function fetchBoardObjectPositions(): Promise<Array<{ x: number; y: number; width: number; height: number }>> {
+    if (boardObjectsCache !== null) return boardObjectsCache
+    const { data } = await supabase
+      .from('board_objects')
+      .select('x, y, width, height')
+      .eq('board_id', boardId)
+    boardObjectsCache = (data || []).map((o) => ({
+      x: o.x as number,
+      y: o.y as number,
+      width: o.width as number,
+      height: o.height as number,
+    }))
+    return boardObjectsCache
+  }
+
+  /**
+   * Find an unoccupied area on the board for a new object.
+   * If preferX/preferY are given, uses them only if they don't overlap.
+   * Otherwise scans right → below existing content for open space.
+   * Tracks positions allocated in this AI turn to prevent stacking.
+   */
+  async function findOpenSpace(
+    neededWidth: number,
+    neededHeight: number,
+    preferX?: number,
+    preferY?: number,
+  ): Promise<{ x: number; y: number }> {
+    const dbObjects = await fetchBoardObjectPositions()
+
+    const rects = [
+      ...dbObjects,
+      ...allocated,
+    ]
+
+    if (rects.length === 0) {
+      const pos = { x: preferX ?? 100, y: preferY ?? 100 }
+      allocated.push({ ...pos, width: neededWidth, height: neededHeight })
+      return pos
+    }
+
+    const PAD = 40
+
+    function overlaps(px: number, py: number): boolean {
+      for (const r of rects) {
+        if (
+          px < r.x + r.width + PAD &&
+          px + neededWidth > r.x - PAD &&
+          py < r.y + r.height + PAD &&
+          py + neededHeight > r.y - PAD
+        ) {
+          return true
+        }
+      }
+      return false
+    }
+
+    // If preferred position doesn't overlap, use it
+    if (preferX != null && preferY != null && !overlaps(preferX, preferY)) {
+      allocated.push({ x: preferX, y: preferY, width: neededWidth, height: neededHeight })
+      return { x: preferX, y: preferY }
+    }
+
+    const left = Math.min(...rects.map((r) => r.x))
+    const top = Math.min(...rects.map((r) => r.y))
+    const right = Math.max(...rects.map((r) => r.x + r.width))
+    const bottom = Math.max(...rects.map((r) => r.y + r.height))
+
+    // Try right of existing content at various y offsets
+    const yStep = Math.max(neededHeight / 2, 50)
+    for (let y = top; y <= bottom + neededHeight; y += yStep) {
+      if (!overlaps(right + PAD, y)) {
+        const pos = { x: right + PAD, y }
+        allocated.push({ ...pos, width: neededWidth, height: neededHeight })
+        return pos
+      }
+    }
+
+    // Try below existing content at various x offsets
+    const xStep = Math.max(neededWidth / 2, 50)
+    for (let x = left; x <= right + neededWidth; x += xStep) {
+      if (!overlaps(x, bottom + PAD)) {
+        const pos = { x, y: bottom + PAD }
+        allocated.push({ ...pos, width: neededWidth, height: neededHeight })
+        return pos
+      }
+    }
+
+    // Fallback: place to the right
+    const pos = { x: right + PAD, y: top }
+    allocated.push({ ...pos, width: neededWidth, height: neededHeight })
+    return pos
+  }
+
   return {
     // ── Creation Tools ──────────────────────────────────────────────
 
@@ -51,15 +152,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
       execute: async ({ text, x, y, color, width, height }) => {
         const defaults = SHAPE_DEFAULTS.sticky_note
+        const w = width ?? defaults.width
+        const h = height ?? defaults.height
+        const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
         return {
           action: 'create' as const,
           object: {
             id: crypto.randomUUID(),
             type: 'sticky_note' as const,
-            x: x ?? 100,
-            y: y ?? 100,
-            width: width ?? defaults.width,
-            height: height ?? defaults.height,
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
             fill: color ?? defaults.fill,
             text,
             z_index: 0,
@@ -86,15 +190,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
       execute: async ({ type, x, y, width, height, fill, stroke, strokeWidth }) => {
         const defaults = SHAPE_DEFAULTS[type as ShapeType]
+        const w = width ?? defaults.width
+        const h = height ?? defaults.height
+        const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
         return {
           action: 'create' as const,
           object: {
             id: crypto.randomUUID(),
             type,
-            x: x ?? 100,
-            y: y ?? 100,
-            width: width ?? defaults.width,
-            height: height ?? defaults.height,
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
             fill: fill ?? defaults.fill,
             stroke: stroke ?? defaults.stroke,
             strokeWidth: strokeWidth ?? defaults.strokeWidth,
@@ -123,9 +230,11 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
           .describe('Background color hex (default: #f1f5f9, light gray)'),
       }),
       execute: async ({ title, x, y, width, height, fill }) => {
-        const frameX = x ?? 100
-        const frameY = y ?? 100
         const frameW = width ?? 350
+        const frameH = height ?? 300
+        const pos = await findOpenSpace(frameW, frameH, x ?? undefined, y ?? undefined)
+        const frameX = pos.x
+        const frameY = pos.y
         return {
           action: 'create' as const,
           object: {
@@ -134,7 +243,7 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
             x: frameX,
             y: frameY,
             width: frameW,
-            height: height ?? 300,
+            height: frameH,
             fill: fill ?? '#f1f5f9',
             stroke: '#94a3b8',
             strokeWidth: 2,
@@ -205,15 +314,18 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       }),
       execute: async ({ text, x, y, fontSize, color, width, fontFamily }) => {
         const defaults = SHAPE_DEFAULTS.text
+        const w = width ?? defaults.width
+        const h = defaults.height
+        const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
         return {
           action: 'create' as const,
           object: {
             id: crypto.randomUUID(),
             type: 'text' as const,
-            x: x ?? 100,
-            y: y ?? 100,
-            width: width ?? defaults.width,
-            height: defaults.height,
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
             fill: color ?? defaults.fill,
             text,
             fontSize: fontSize ?? 18,
@@ -280,6 +392,65 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
             z_index: 0,
             updated_at: new Date().toISOString(),
           },
+        }
+      },
+    }),
+
+    // ── Batch Creation Tool ─────────────────────────────────────────
+
+    createMultipleObjects: tool({
+      description:
+        'Create multiple objects at once on the board in a single call. Use this for templates (SWOT, Kanban, Lean Canvas, etc.) and any multi-object creation. Much faster than creating objects one at a time. Each item specifies its own position.',
+      inputSchema: z.object({
+        objects: z.array(z.object({
+          type: z.enum([
+            'sticky_note', 'rectangle', 'rounded_rectangle', 'circle',
+            'ellipse', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon',
+            'arrow', 'line', 'text',
+          ]).describe('The object type'),
+          text: z.string().optional().describe('Text content (for sticky notes, text elements)'),
+          x: z.number().describe('X position'),
+          y: z.number().describe('Y position'),
+          width: z.number().optional().describe('Width in pixels'),
+          height: z.number().optional().describe('Height in pixels'),
+          fill: z.string().optional().describe('Fill color hex'),
+          stroke: z.string().optional().describe('Stroke color hex'),
+          strokeWidth: z.number().optional().describe('Stroke width'),
+          opacity: z.number().optional().describe('Opacity 0-1'),
+          fontSize: z.number().optional().describe('Font size (text only)'),
+          fontFamily: z.string().optional().describe('Font family (text only)'),
+        })).describe('Array of objects to create'),
+      }),
+      execute: async ({ objects: objectDefs }) => {
+        const createdObjects = objectDefs.map((def) => {
+          const defaults = SHAPE_DEFAULTS[def.type as ShapeType] || SHAPE_DEFAULTS.rectangle
+          return {
+            id: crypto.randomUUID(),
+            type: def.type,
+            x: def.x,
+            y: def.y,
+            width: def.width ?? defaults.width,
+            height: def.height ?? defaults.height,
+            fill: def.fill ?? defaults.fill,
+            stroke: def.stroke ?? defaults.stroke,
+            strokeWidth: def.strokeWidth ?? defaults.strokeWidth,
+            opacity: def.opacity,
+            text: def.text,
+            fontSize: def.fontSize,
+            fontFamily: def.fontFamily,
+            z_index: 0,
+            updated_at: new Date().toISOString(),
+          }
+        })
+
+        // Register all positions in allocated array for future findOpenSpace calls
+        for (const obj of createdObjects) {
+          allocated.push({ x: obj.x, y: obj.y, width: obj.width, height: obj.height })
+        }
+
+        return {
+          action: 'batch_create' as const,
+          objects: createdObjects,
         }
       },
     }),
@@ -482,6 +653,164 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
             }
           }),
           count: data?.length ?? 0,
+        }
+      },
+    }),
+
+    // ── Image Generation Tools ──────────────────────────────────────────
+
+    generateSvgImage: tool({
+      description:
+        'Generate a clean, colorful SVG illustration of a concept and place it on the board as an image. Best for icons, diagrams, logos, simple illustrations, and any visual where vector quality matters. Fast (~2s) and cheap.',
+      inputSchema: z.object({
+        concept: z
+          .string()
+          .describe('What to draw (e.g. "cat", "rocket ship", "DNA helix", "coffee cup")'),
+        style: z
+          .string()
+          .optional()
+          .describe('Art style (e.g. "flat design", "minimalist", "cartoon", "geometric")'),
+        x: z.number().optional().describe('X position on canvas (default: 100)'),
+        y: z.number().optional().describe('Y position on canvas (default: 100)'),
+        width: z.number().optional().describe('Width in pixels (default: 300)'),
+        height: z.number().optional().describe('Height in pixels (default: 300)'),
+      }),
+      execute: async ({ concept, style, x, y, width, height }) => {
+        try {
+          const { dataUrl } = await generateSvg(concept, style)
+          const defaults = SHAPE_DEFAULTS.image
+          const w = width ?? defaults.width
+          const h = height ?? defaults.height
+          const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
+          return {
+            action: 'create' as const,
+            object: {
+              id: crypto.randomUUID(),
+              type: 'image' as const,
+              x: pos.x,
+              y: pos.y,
+              width: w,
+              height: h,
+              fill: 'transparent',
+              imageUrl: dataUrl,
+              z_index: 0,
+              updated_at: new Date().toISOString(),
+            },
+          }
+        } catch (err) {
+          console.error('[generateSvgImage] Tool error:', err)
+          return {
+            action: 'create' as const,
+            error: `SVG generation failed: ${err instanceof Error ? err.message : String(err)}`,
+          }
+        }
+      },
+    }),
+
+    // ── 3D Model Tool ───────────────────────────────────────────────────
+
+    create3DModel: tool({
+      description:
+        'REQUIRED when user asks for anything "3D". Place an interactive 3D model on the board. Users can double-click to rotate and orbit the model. ONLY these models are available: astronaut, robot, horse, duck, car, helmet, lantern. NO geometric primitives (cube, sphere, cylinder) exist. If the user asks for a shape not in the list, pick the closest match or explain which models are available.',
+      inputSchema: z.object({
+        shape: z
+          .enum(['astronaut', 'robot', 'horse', 'duck', 'car', 'helmet', 'lantern', 'custom'])
+          .describe('The 3D model to place. ONLY these options exist. Use "custom" with modelUrl for external GLB files.'),
+        modelUrl: z
+          .string()
+          .optional()
+          .describe('URL to a .glb file (only needed for "custom" shape)'),
+        x: z.number().optional().describe('X position on canvas'),
+        y: z.number().optional().describe('Y position on canvas'),
+        width: z.number().optional().describe('Width in pixels (default: 250)'),
+        height: z.number().optional().describe('Height in pixels (default: 250)'),
+      }),
+      execute: async ({ shape, modelUrl, x, y, width, height }) => {
+        // Built-in models from Google's model-viewer verified sample assets
+        const BUILT_IN_MODELS: Record<string, string> = {
+          astronaut: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+          robot: 'https://modelviewer.dev/shared-assets/models/RobotExpressive.glb',
+          horse: 'https://modelviewer.dev/shared-assets/models/Horse.glb',
+          duck: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/Duck/glTF-Binary/Duck.glb',
+          car: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/ToyCar/glTF-Binary/ToyCar.glb',
+          helmet: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb',
+          lantern: 'https://modelviewer.dev/shared-assets/models/glTF-Sample-Assets/Models/Lantern/glTF-Binary/Lantern.glb',
+        }
+
+        const url = shape === 'custom' ? modelUrl : BUILT_IN_MODELS[shape]
+        if (!url) {
+          return {
+            action: 'create' as const,
+            error: shape === 'custom'
+              ? 'modelUrl is required for custom shapes'
+              : `No built-in model for shape: ${shape}`,
+          }
+        }
+
+        const defaults = SHAPE_DEFAULTS.model3d
+        const w = width ?? defaults.width
+        const h = height ?? defaults.height
+        const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
+        return {
+          action: 'create' as const,
+          object: {
+            id: crypto.randomUUID(),
+            type: 'model3d' as const,
+            x: pos.x,
+            y: pos.y,
+            width: w,
+            height: h,
+            fill: defaults.fill,
+            modelUrl: url,
+            cameraOrbit: '0deg 75deg 2.5m',
+            z_index: 0,
+            updated_at: new Date().toISOString(),
+          },
+        }
+      },
+    }),
+
+    generateRealisticImage: tool({
+      description:
+        'Generate a high-quality, realistic image using DALL-E 3 and place it on the board. Best for photorealistic scenes, complex illustrations, or artistic imagery. Slower (~10s) and costs ~$0.04 per image. Use generateSvgImage for simpler/faster needs.' +
+        (!process.env.OPENAI_API_KEY ? ' NOTE: This tool is currently unavailable (OPENAI_API_KEY not configured). Use generateSvgImage instead.' : ''),
+      inputSchema: z.object({
+        prompt: z
+          .string()
+          .describe('Detailed description of the image to generate (e.g. "a sunset over mountains with a lake reflection")'),
+        x: z.number().optional().describe('X position on canvas (default: 100)'),
+        y: z.number().optional().describe('Y position on canvas (default: 100)'),
+        width: z.number().optional().describe('Display width in pixels (default: 300)'),
+        height: z.number().optional().describe('Display height in pixels (default: 300)'),
+      }),
+      execute: async ({ prompt, x, y, width, height }) => {
+        try {
+          const { dataUrl } = await generateImage(prompt)
+          const defaults = SHAPE_DEFAULTS.image
+          const w = width ?? defaults.width
+          const h = height ?? defaults.height
+          const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
+          return {
+            action: 'create' as const,
+            object: {
+              id: crypto.randomUUID(),
+              type: 'image' as const,
+              x: pos.x,
+              y: pos.y,
+              width: w,
+              height: h,
+              fill: 'transparent',
+              imageUrl: dataUrl,
+              z_index: 0,
+              updated_at: new Date().toISOString(),
+            },
+          }
+        } catch (err) {
+          console.error('[generateRealisticImage] Tool error:', err)
+          return {
+            action: 'create' as const,
+            error: `Image generation failed: ${err instanceof Error ? err.message : String(err)}`,
+          }
         }
       },
     }),

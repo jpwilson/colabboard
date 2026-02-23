@@ -118,7 +118,7 @@ export function Toolbar({
   boardName,
   boardId,
   isOwner,
-  gridMode = 'dots',
+  gridMode = 'none',
   onToolChange,
   onShapeToolChange,
   onStickyColorChange,

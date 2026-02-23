@@ -13,7 +13,9 @@ import { Toolbar, type Tool, type ShapeTool } from './Toolbar'
 import { PropertiesPanel } from './PropertiesPanel'
 import { ConnectionIndicator } from './ConnectionIndicator'
 import { AiAgentPanel } from '@/components/ui/AiAgentButton'
+import { Model3DOverlay } from './Model3DOverlay'
 import { SHAPE_DEFAULTS, STICKY_COLORS, getContrastTextColor } from '@/lib/shape-defaults'
+import getStroke from 'perfect-freehand'
 import type { CanvasObject, ShapeType } from '@/lib/board-sync'
 
 function generateId() {
@@ -52,8 +54,11 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const [stageScale, setStageScale] = useState(1)
   const [editingId, setEditingId] = useState<string | null>(null)
   type GridMode = 'none' | 'dots' | 'lines'
-  const [gridMode, setGridMode] = useState<GridMode>('dots')
+  const [gridMode, setGridMode] = useState<GridMode>('none')
   const [displayName, setDisplayName] = useState(boardName || '')
+
+  // 3D interaction state
+  const [interacting3dId, setInteracting3dId] = useState<string | null>(null)
 
   // Freedraw state
   const [isDrawing, setIsDrawing] = useState(false)
@@ -291,6 +296,7 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
         const isShift = 'shiftKey' in e.evt && e.evt.shiftKey
         if (!isShift) {
           setSelectedIds([])
+          setInteracting3dId(null)
         }
         return
       }
@@ -626,7 +632,15 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
   const handleDoubleClick = useCallback(
     (id: string) => {
       const obj = objects.find((o) => o.id === id)
-      if (!obj || (obj.type !== 'sticky_note' && obj.type !== 'text')) return
+      if (!obj) return
+
+      // Toggle 3D interaction mode
+      if (obj.type === 'model3d') {
+        setInteracting3dId((prev) => (prev === id ? null : id))
+        return
+      }
+
+      if (obj.type !== 'sticky_note' && obj.type !== 'text') return
       setEditingId(id)
 
       const stage = stageRef.current
@@ -767,6 +781,14 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
       return Math.max(0.02, prev / (1.2 + dist * 0.08))
     })
   }, [])
+
+  // Handle 3D model camera orbit changes — sync to other users
+  const handle3DCameraChange = useCallback(
+    (id: string, cameraOrbit: string) => {
+      updateObjectHelper(id, { cameraOrbit, updated_at: new Date().toISOString() })
+    },
+    [updateObjectHelper],
+  )
 
   const handleZoomFit = useCallback(() => {
     if (objects.length === 0) {
@@ -1165,17 +1187,28 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
             )}
 
             {/* In-progress freedraw preview */}
-            {isDrawing && currentDrawPoints.length >= 4 && (
-              <Line
-                points={currentDrawPoints}
-                stroke="#1f2937"
-                strokeWidth={3}
-                tension={0.5}
-                lineCap="round"
-                lineJoin="round"
-                listening={false}
-              />
-            )}
+            {isDrawing && currentDrawPoints.length >= 4 && (() => {
+              const inputPts: [number, number][] = []
+              for (let i = 0; i < currentDrawPoints.length; i += 2) {
+                inputPts.push([currentDrawPoints[i], currentDrawPoints[i + 1]])
+              }
+              const outline = getStroke(inputPts, {
+                size: 7.5,
+                thinning: 0.5,
+                smoothing: 0.5,
+                streamline: 0.5,
+                start: { taper: true },
+                end: { taper: true },
+              })
+              return (
+                <Line
+                  points={outline.flat()}
+                  fill="#1f2937"
+                  closed={true}
+                  listening={false}
+                />
+              )
+            })()}
 
             {/* Marquee selection rectangle */}
             {selectionRect && (
@@ -1284,6 +1317,15 @@ export function BoardCanvas({ boardId, boardSlug, boardName, isOwner, userId, us
             )}
           </Layer>
         </Stage>
+
+        {/* 3D model viewer overlay — positioned over canvas */}
+        <Model3DOverlay
+          objects={objects}
+          stagePos={stagePos}
+          stageScale={stageScale}
+          interactingId={interacting3dId}
+          onCameraChange={handle3DCameraChange}
+        />
 
         {/* AI Agent Panel — only for authenticated users with board access */}
         {syncEnabled && boardId && (

@@ -100,12 +100,13 @@ describe('aiTools', () => {
     })
 
     it('positions title label inside the frame', async () => {
+      // Use (500,500) to avoid overlap with mock object at (100,100)
       const result = await tools.createFrame.execute(
-        { title: 'Test', x: 200, y: 200 },
+        { title: 'Test', x: 500, y: 500 },
         { toolCallId: 't6', messages: [], abortSignal: undefined as never },
       )
-      expect(result.titleLabel.x).toBe(210) // frameX + 10
-      expect(result.titleLabel.y).toBe(210) // frameY + 10
+      expect(result.titleLabel.x).toBe(510) // frameX + 10
+      expect(result.titleLabel.y).toBe(510) // frameY + 10
     })
   })
 
@@ -218,6 +219,42 @@ describe('aiTools', () => {
       expect(result.action).toBe('batch_update')
       expect(result.batchUpdates[0].updates).toEqual({ x: 50, y: 50 })
       expect(result.batchUpdates[1].updates).toEqual({ x: 50, y: 220 }) // 50 + 150 + 20
+    })
+  })
+
+  describe('createMultipleObjects', () => {
+    it('returns a batch_create action with all objects', async () => {
+      const result = await tools.createMultipleObjects.execute(
+        {
+          objects: [
+            { type: 'rectangle', x: 100, y: 100, width: 350, height: 300, fill: '#dcfce7' },
+            { type: 'sticky_note', x: 110, y: 110, text: 'Strengths', fill: '#dcfce7' },
+          ],
+        },
+        { toolCallId: 'batch1', messages: [], abortSignal: undefined as never },
+      )
+      expect(result.action).toBe('batch_create')
+      expect(result.objects).toHaveLength(2)
+      expect(result.objects[0].type).toBe('rectangle')
+      expect(result.objects[0].x).toBe(100)
+      expect(result.objects[1].type).toBe('sticky_note')
+      expect(result.objects[1].text).toBe('Strengths')
+      expect(result.objects[0].id).toBeTruthy()
+      expect(result.objects[1].id).toBeTruthy()
+    })
+
+    it('uses defaults when optional fields omitted', async () => {
+      const result = await tools.createMultipleObjects.execute(
+        {
+          objects: [
+            { type: 'circle', x: 200, y: 200 },
+          ],
+        },
+        { toolCallId: 'batch2', messages: [], abortSignal: undefined as never },
+      )
+      expect(result.objects).toHaveLength(1)
+      expect(result.objects[0].width).toBeGreaterThan(0)
+      expect(result.objects[0].height).toBeGreaterThan(0)
     })
   })
 })
