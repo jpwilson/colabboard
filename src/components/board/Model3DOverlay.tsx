@@ -57,7 +57,9 @@ export const Model3DOverlay = memo(function Model3DOverlay({
         return (
           <ModelViewerElement
             key={obj.id}
-            obj={obj}
+            objId={obj.id}
+            modelUrl={obj.modelUrl!}
+            cameraOrbit={obj.cameraOrbit || '0deg 75deg 2.5m'}
             screenX={screenX}
             screenY={screenY}
             screenW={screenW}
@@ -71,9 +73,11 @@ export const Model3DOverlay = memo(function Model3DOverlay({
   )
 })
 
-/** Individual model-viewer element — memoized to prevent unnecessary re-renders */
+/** Individual model-viewer element */
 const ModelViewerElement = memo(function ModelViewerElement({
-  obj,
+  objId,
+  modelUrl,
+  cameraOrbit,
   screenX,
   screenY,
   screenW,
@@ -81,7 +85,9 @@ const ModelViewerElement = memo(function ModelViewerElement({
   isInteracting,
   onCameraChange,
 }: {
-  obj: CanvasObject
+  objId: string
+  modelUrl: string
+  cameraOrbit: string
   screenX: number
   screenY: number
   screenW: number
@@ -102,10 +108,10 @@ const ModelViewerElement = memo(function ModelViewerElement({
     debounceRef.current = setTimeout(() => {
       const orbit = mv.getAttribute('camera-orbit')
       if (orbit) {
-        onCameraChange(obj.id, orbit)
+        onCameraChange(objId, orbit)
       }
     }, 200)
-  }, [isInteracting, obj.id, onCameraChange])
+  }, [isInteracting, objId, onCameraChange])
 
   useEffect(() => {
     const mv = mvRef.current
@@ -119,16 +125,30 @@ const ModelViewerElement = memo(function ModelViewerElement({
   }, [handleCameraChange])
 
   // Sync camera orbit from remote updates — imperatively set the attribute
-  // because React doesn't reliably push attribute changes to web components
+  // because React doesn't reliably push attribute changes to web components.
+  // Also disable auto-rotate temporarily so it doesn't fight the new position.
   useEffect(() => {
     const mv = mvRef.current
     if (!mv || isInteracting) return // Don't override while local user is orbiting
-    const orbit = obj.cameraOrbit || '0deg 75deg 2.5m'
-    const current = mv.getAttribute('camera-orbit')
-    if (current !== orbit) {
-      mv.setAttribute('camera-orbit', orbit)
+
+    // Disable auto-rotate before setting camera to prevent it fighting the position
+    mv.removeAttribute('auto-rotate')
+
+    // Use model-viewer's jumpCameraToGoal for instant snap (no animation)
+    mv.setAttribute('camera-orbit', cameraOrbit)
+    const mvAny = mv as unknown as { jumpCameraToGoal?: () => void }
+    if (typeof mvAny.jumpCameraToGoal === 'function') {
+      mvAny.jumpCameraToGoal()
     }
-  }, [obj.cameraOrbit, isInteracting])
+
+    // Re-enable auto-rotate after a short delay so it idles from the new position
+    const timer = setTimeout(() => {
+      if (!isInteracting) {
+        mv.setAttribute('auto-rotate', '')
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [cameraOrbit, isInteracting])
 
   return (
     <div
@@ -148,8 +168,8 @@ const ModelViewerElement = memo(function ModelViewerElement({
       {/* @ts-expect-error model-viewer is a web component loaded via CDN */}
       <model-viewer
         ref={mvRef}
-        src={obj.modelUrl}
-        camera-orbit={obj.cameraOrbit || '0deg 75deg 2.5m'}
+        src={modelUrl}
+        camera-orbit={cameraOrbit}
         camera-controls={isInteracting || undefined}
         auto-rotate={!isInteracting || undefined}
         shadow-intensity="1"
