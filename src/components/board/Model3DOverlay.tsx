@@ -118,6 +118,18 @@ const ModelViewerElement = memo(function ModelViewerElement({
     }
   }, [handleCameraChange])
 
+  // Sync camera orbit from remote updates — imperatively set the attribute
+  // because React doesn't reliably push attribute changes to web components
+  useEffect(() => {
+    const mv = mvRef.current
+    if (!mv || isInteracting) return // Don't override while local user is orbiting
+    const orbit = obj.cameraOrbit || '0deg 75deg 2.5m'
+    const current = mv.getAttribute('camera-orbit')
+    if (current !== orbit) {
+      mv.setAttribute('camera-orbit', orbit)
+    }
+  }, [obj.cameraOrbit, isInteracting])
+
   return (
     <div
       style={{
