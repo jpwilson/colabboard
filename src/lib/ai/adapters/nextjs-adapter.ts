@@ -52,10 +52,10 @@ export class NextJSAdapter implements AgentAdapter {
           'createConnector',
           'createText',
           'createFreedraw',
-          'drawSketch',
           'generateSvgImage',
           'generateRealisticImage',
           'create3DModel',
+          'createMultipleObjects',
         ]
         const modifyTools = [
           'moveObject',

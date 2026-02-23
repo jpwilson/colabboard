@@ -61,7 +61,14 @@ export function AiAgentPanel({
   const [extrasOpen, setExtrasOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [verbose, setVerbose] = useState(true)
+  const [verbose, setVerbose] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      const stored = localStorage.getItem('orim-chat-verbose')
+      if (stored === 'true') return true
+    } catch { /* ignore */ }
+    return false
+  })
   const [textSize, setTextSize] = useState<'sm' | 'md' | 'lg'>(() => {
     if (typeof window === 'undefined') return 'md'
     try {
@@ -521,7 +528,11 @@ export function AiAgentPanel({
             <div className="group relative" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
               <div
                 className="relative flex h-6 w-[110px] cursor-pointer items-center rounded-full bg-slate-200/70 text-xs font-semibold"
-                onClick={() => setVerbose((v) => !v)}
+                onClick={() => setVerbose((v) => {
+                  const next = !v
+                  try { localStorage.setItem('orim-chat-verbose', String(next)) } catch { /* ignore */ }
+                  return next
+                })}
               >
                 <div
                   className={`absolute top-0.5 h-5 w-[53px] rounded-full transition-all duration-200 ${
@@ -965,22 +976,54 @@ function MessageBubble({ message, msgTextClass, pillTextClass }: { message: UIMe
 
   // Assistant message
   const textParts: string[] = []
-  let toolCount = 0
+  let objectsCreated = 0
+  let objectsUpdated = 0
+  let objectsDeleted = 0
 
   for (const part of message.parts) {
     if (part.type === 'text' && part.text.trim()) {
       textParts.push(part.text)
     } else {
-      // Count tool parts (type is 'tool-${name}' or 'dynamic-tool')
-      const pType = (part as Record<string, unknown>).type
+      const p = part as Record<string, unknown>
+      const pType = p.type
       if (
         typeof pType === 'string' &&
-        (pType.startsWith('tool-') || pType === 'dynamic-tool')
+        (pType.startsWith('tool-') || pType === 'dynamic-tool') &&
+        p.state === 'output-available' &&
+        p.output !== undefined
       ) {
-        toolCount++
+        const result = p.output as ToolActionResult
+        if (result?.action) {
+          switch (result.action) {
+            case 'create':
+              if (result.object) objectsCreated += 1
+              if (result.titleLabel) objectsCreated += 1
+              break
+            case 'batch_create':
+              objectsCreated += result.objects?.length ?? 0
+              break
+            case 'update':
+              objectsUpdated += 1
+              break
+            case 'batch_update':
+              objectsUpdated += result.batchUpdates?.length ?? 0
+              break
+            case 'delete':
+              objectsDeleted += 1
+              break
+          }
+        }
       }
     }
   }
+
+  const summaryParts: string[] = []
+  if (objectsCreated > 0) summaryParts.push(`Created ${objectsCreated}`)
+  if (objectsUpdated > 0) summaryParts.push(`updated ${objectsUpdated}`)
+  if (objectsDeleted > 0) summaryParts.push(`deleted ${objectsDeleted}`)
+  const summaryText = summaryParts.length > 0
+    ? summaryParts.join(', ') + ` object${objectsCreated + objectsUpdated + objectsDeleted > 1 ? 's' : ''}`
+    : ''
 
   return (
     <div className="flex justify-start">
@@ -993,9 +1036,9 @@ function MessageBubble({ message, msgTextClass, pillTextClass }: { message: UIMe
             {text}
           </div>
         ))}
-        {toolCount > 0 && (
+        {summaryText && (
           <div className={`${pillTextClass} text-slate-400`}>
-            Executed {toolCount} action{toolCount > 1 ? 's' : ''}
+            {summaryText}
           </div>
         )}
       </div>

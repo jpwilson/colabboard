@@ -221,4 +221,40 @@ describe('aiTools', () => {
       expect(result.batchUpdates[1].updates).toEqual({ x: 50, y: 220 }) // 50 + 150 + 20
     })
   })
+
+  describe('createMultipleObjects', () => {
+    it('returns a batch_create action with all objects', async () => {
+      const result = await tools.createMultipleObjects.execute(
+        {
+          objects: [
+            { type: 'rectangle', x: 100, y: 100, width: 350, height: 300, fill: '#dcfce7' },
+            { type: 'sticky_note', x: 110, y: 110, text: 'Strengths', fill: '#dcfce7' },
+          ],
+        },
+        { toolCallId: 'batch1', messages: [], abortSignal: undefined as never },
+      )
+      expect(result.action).toBe('batch_create')
+      expect(result.objects).toHaveLength(2)
+      expect(result.objects[0].type).toBe('rectangle')
+      expect(result.objects[0].x).toBe(100)
+      expect(result.objects[1].type).toBe('sticky_note')
+      expect(result.objects[1].text).toBe('Strengths')
+      expect(result.objects[0].id).toBeTruthy()
+      expect(result.objects[1].id).toBeTruthy()
+    })
+
+    it('uses defaults when optional fields omitted', async () => {
+      const result = await tools.createMultipleObjects.execute(
+        {
+          objects: [
+            { type: 'circle', x: 200, y: 200 },
+          ],
+        },
+        { toolCallId: 'batch2', messages: [], abortSignal: undefined as never },
+      )
+      expect(result.objects).toHaveLength(1)
+      expect(result.objects[0].width).toBeGreaterThan(0)
+      expect(result.objects[0].height).toBeGreaterThan(0)
+    })
+  })
 })

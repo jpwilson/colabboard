@@ -3,7 +3,6 @@ import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SHAPE_DEFAULTS, STICKY_COLORS } from '@/lib/shape-defaults'
 import type { ShapeType } from '@/lib/board-sync'
-import { generateSketch } from './sketch-agent'
 import { generateSvg } from './generation/generate-svg'
 import { generateImage } from './generation/generate-image'
 
@@ -33,6 +32,24 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
   // Track positions allocated during this AI turn to avoid overlap between consecutive creates
   const allocated: Array<{ x: number; y: number; width: number; height: number }> = []
 
+  // Lazy cache of board object positions — fetched once per AI turn, reused across all tool calls
+  let boardObjectsCache: Array<{ x: number; y: number; width: number; height: number }> | null = null
+
+  async function fetchBoardObjectPositions(): Promise<Array<{ x: number; y: number; width: number; height: number }>> {
+    if (boardObjectsCache !== null) return boardObjectsCache
+    const { data } = await supabase
+      .from('board_objects')
+      .select('x, y, width, height')
+      .eq('board_id', boardId)
+    boardObjectsCache = (data || []).map((o) => ({
+      x: o.x as number,
+      y: o.y as number,
+      width: o.width as number,
+      height: o.height as number,
+    }))
+    return boardObjectsCache
+  }
+
   /**
    * Find an unoccupied area on the board for a new object.
    * If preferX/preferY are given, uses them only if they don't overlap.
@@ -45,18 +62,10 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
     preferX?: number,
     preferY?: number,
   ): Promise<{ x: number; y: number }> {
-    const { data } = await supabase
-      .from('board_objects')
-      .select('x, y, width, height')
-      .eq('board_id', boardId)
+    const dbObjects = await fetchBoardObjectPositions()
 
     const rects = [
-      ...(data || []).map((o) => ({
-        x: o.x as number,
-        y: o.y as number,
-        width: o.width as number,
-        height: o.height as number,
-      })),
+      ...dbObjects,
       ...allocated,
     ]
 
@@ -387,6 +396,65 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       },
     }),
 
+    // ── Batch Creation Tool ─────────────────────────────────────────
+
+    createMultipleObjects: tool({
+      description:
+        'Create multiple objects at once on the board in a single call. Use this for templates (SWOT, Kanban, Lean Canvas, etc.) and any multi-object creation. Much faster than creating objects one at a time. Each item specifies its own position.',
+      inputSchema: z.object({
+        objects: z.array(z.object({
+          type: z.enum([
+            'sticky_note', 'rectangle', 'rounded_rectangle', 'circle',
+            'ellipse', 'triangle', 'diamond', 'star', 'hexagon', 'pentagon',
+            'arrow', 'line', 'text',
+          ]).describe('The object type'),
+          text: z.string().optional().describe('Text content (for sticky notes, text elements)'),
+          x: z.number().describe('X position'),
+          y: z.number().describe('Y position'),
+          width: z.number().optional().describe('Width in pixels'),
+          height: z.number().optional().describe('Height in pixels'),
+          fill: z.string().optional().describe('Fill color hex'),
+          stroke: z.string().optional().describe('Stroke color hex'),
+          strokeWidth: z.number().optional().describe('Stroke width'),
+          opacity: z.number().optional().describe('Opacity 0-1'),
+          fontSize: z.number().optional().describe('Font size (text only)'),
+          fontFamily: z.string().optional().describe('Font family (text only)'),
+        })).describe('Array of objects to create'),
+      }),
+      execute: async ({ objects: objectDefs }) => {
+        const createdObjects = objectDefs.map((def) => {
+          const defaults = SHAPE_DEFAULTS[def.type as ShapeType] || SHAPE_DEFAULTS.rectangle
+          return {
+            id: crypto.randomUUID(),
+            type: def.type,
+            x: def.x,
+            y: def.y,
+            width: def.width ?? defaults.width,
+            height: def.height ?? defaults.height,
+            fill: def.fill ?? defaults.fill,
+            stroke: def.stroke ?? defaults.stroke,
+            strokeWidth: def.strokeWidth ?? defaults.strokeWidth,
+            opacity: def.opacity,
+            text: def.text,
+            fontSize: def.fontSize,
+            fontFamily: def.fontFamily,
+            z_index: 0,
+            updated_at: new Date().toISOString(),
+          }
+        })
+
+        // Register all positions in allocated array for future findOpenSpace calls
+        for (const obj of createdObjects) {
+          allocated.push({ x: obj.x, y: obj.y, width: obj.width, height: obj.height })
+        }
+
+        return {
+          action: 'batch_create' as const,
+          objects: createdObjects,
+        }
+      },
+    }),
+
     // ── Manipulation Tools ──────────────────────────────────────────
 
     moveObject: tool({
@@ -589,68 +657,11 @@ export function aiTools(boardId: string, supabase: SupabaseClient) {
       },
     }),
 
-    // ── Drawing Tool ───────────────────────────────────────────────────
-
-    drawSketch: tool({
-      description:
-        'Draw a hand-drawn sketch of a concept using AI-generated Bezier curve strokes. Creates a pen-and-ink style illustration. Best for quick doodles and hand-drawn style only — for better quality, use generateSvg instead.',
-      inputSchema: z.object({
-        concept: z
-          .string()
-          .describe('What to draw (e.g. "horse", "sailboat", "DNA helix", "face")'),
-        x: z.number().optional().describe('X position on canvas (default: 100)'),
-        y: z.number().optional().describe('Y position on canvas (default: 100)'),
-        width: z
-          .number()
-          .optional()
-          .describe('Width of the drawing area in pixels (default: 400)'),
-        height: z
-          .number()
-          .optional()
-          .describe('Height of the drawing area in pixels (default: 400)'),
-      }),
-      execute: async ({ concept, x, y, width, height }) => {
-        try {
-          const w = width ?? 400
-          const h = height ?? 400
-          const pos = await findOpenSpace(w, h, x ?? undefined, y ?? undefined)
-          const objects = await generateSketch(
-            concept,
-            pos.x,
-            pos.y,
-            w,
-            h,
-          )
-
-          if (objects.length === 0) {
-            return {
-              action: 'create' as const,
-              error: 'Failed to generate sketch — no strokes were produced.',
-            }
-          }
-
-          return {
-            action: 'batch_create' as const,
-            objects: objects.map((obj) => ({
-              ...obj,
-              z_index: 0,
-            })),
-          }
-        } catch (err) {
-          console.error('[drawSketch] Tool error:', err)
-          return {
-            action: 'create' as const,
-            error: `Sketch generation failed: ${err instanceof Error ? err.message : String(err)}`,
-          }
-        }
-      },
-    }),
-
     // ── Image Generation Tools ──────────────────────────────────────────
 
     generateSvgImage: tool({
       description:
-        'Generate a clean, colorful SVG illustration of a concept and place it on the board as an image. Best for icons, diagrams, logos, simple illustrations, and any visual where vector quality matters. Fast (~2s) and cheap. Prefer this over drawSketch for better quality.',
+        'Generate a clean, colorful SVG illustration of a concept and place it on the board as an image. Best for icons, diagrams, logos, simple illustrations, and any visual where vector quality matters. Fast (~2s) and cheap.',
       inputSchema: z.object({
         concept: z
           .string()
