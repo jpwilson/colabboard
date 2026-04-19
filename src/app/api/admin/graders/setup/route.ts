@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isUserSuperuser, createServiceRoleClient } from '@/lib/supabase/admin'
 
-const GRADER_COUNT = 10
+const GRADER_COUNT = 5
 const GRADER_DOMAIN = 'orim.test'
 const GRADER_PASSWORD = 'grader-eval-2026'
 

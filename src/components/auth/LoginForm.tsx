@@ -346,7 +346,7 @@ export function LoginForm({ adminGraders = [] }: LoginFormProps) {
               instantly as a unique test user.
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
                 <button
                   key={n}
                   onClick={() => handleGraderSignIn(n)}
