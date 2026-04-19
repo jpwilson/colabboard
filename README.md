@@ -8,7 +8,9 @@ Orim is a multiplayer whiteboard platform where teams can brainstorm, map ideas,
 
 ## Live Demo
 
-**Deployed URL:** _Coming soon_
+**Deployed URL:** [orim.46-225-235-124.sslip.io](https://orim.46-225-235-124.sslip.io)
+
+> _Hosted on [Hetzner Cloud](https://www.hetzner.com/cloud) (ARM CAX21, Nuremberg) via [Coolify](https://coolify.io), with self-hosted Supabase on the same box. Migrated off Vercel + Supabase Cloud (prior URL: `claudeorim.vercel.app`) to cut demo hosting costs._
 
 ## Features
 
